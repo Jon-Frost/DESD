@@ -6,8 +6,7 @@ ENV PYTHONUNBUFFERED 1
 # Install system dependencies for MySQL
 RUN apt-get update && apt-get install -y \
     gcc \
-    default-libmysqlclient-dev \
-    pkg-config \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src

@@ -79,12 +79,12 @@ WSGI_APPLICATION = 'core.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.environ.get('DB_NAME', 'bristol_food_db'),
-        'USER': os.environ.get('DB_USER', 'food_user'),
-        'PASSWORD': os.environ.get('DB_PASS', 'food_password'),
-        'HOST': os.environ.get('DB_HOST', 'db'), # Resolves via Embedded DNS [cite: 227]
-        'PORT': '3306',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ.get('POSTGRES_DB', 'bristol_food_db'),
+        'USER': os.environ.get('POSTGRES_USER', 'food_user'),
+        'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'food_password'),
+        'HOST': 'db',
+        'PORT': '5432', # Postgres default port
     }
 }
 

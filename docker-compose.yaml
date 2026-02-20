@@ -1,16 +1,14 @@
-version: '3.3'
-
 services:
   db:
-    image: mysql:8.0
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: bristol_food_db
-      MYSQL_USER: food_user
-      MYSQL_PASSWORD: food_password
+    image: postgres:15
     volumes:
-      - db_data:/var/lib/mysql
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=bristol_food_db
+      - POSTGRES_USER=food_user
+      - POSTGRES_PASSWORD=food_password
+    ports:
+      - "5432:5432"
 
   web:
     build: .
@@ -19,13 +17,13 @@ services:
       - .:/src
     ports:
       - "8000:8000"
+    environment:
+      - POSTGRES_DB=bristol_food_db
+      - POSTGRES_USER=food_user
+      - POSTGRES_PASSWORD=food_password
+      - DB_HOST=db
     depends_on:
       - db
-    environment:
-      - DB_HOST=db
-      - DB_NAME=bristol_food_db
-      - DB_USER=food_user
-      - DB_PASS=food_password
 
 volumes:
-  db_data:
+  postgres_data:
