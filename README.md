@@ -12,8 +12,11 @@ Jira link: https://desd26.atlassian.net/?continue=https%3A%2F%2Fdesd26.atlassian
 -------------------------------------------
 
 superuser to access db -
+
 user - admin
+
 email - leave blank
+
 password - admin123 
 
 access from - http://localhost:8000/admin
