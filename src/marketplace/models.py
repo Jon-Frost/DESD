@@ -2,6 +2,8 @@ from django.db import models
 from phonenumber_field.modelfields import PhoneNumberField
 from django.contrib.auth.models import User # Built-in security
 from django.core.validators import MinLengthValidator
+
+
 # Create your models here.
 class Product(models.Model):
     
@@ -36,5 +38,14 @@ class Producer(models.Model):
     email = models.EmailField(max_length = 254)
     phone_number = PhoneNumberField(null=True, blank = True)
     business_address = models.CharField(max_length=300)
+    postcode = models.CharField(max_length=7, validators=[MinLengthValidator(5)]) # Fit UK postcodes
+    
+class Customer(models.Model):
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    name = models.CharField(max_length=100)
+    email = models.EmailField(max_length=100)
+    phone_number = PhoneNumberField(null=True, blank = True)
+    address = models.CharField(max_length=100)
     postcode = models.CharField(max_length=7, validators=[MinLengthValidator(5)]) # Fit UK postcodes
     
