@@ -35,8 +35,8 @@ class Producer(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     business_name = models.CharField(max_length=200)
     contact_name = models.CharField(max_length=100)
-    email = models.EmailField(max_length = 254)
-    phone_number = PhoneNumberField(null=True, blank = True)
+    email = models.EmailField(max_length=254)
+    phone_number = PhoneNumberField(null=True, blank=True)
     business_address = models.CharField(max_length=300)
     postcode = models.CharField(max_length=7, validators=[MinLengthValidator(5)]) # Fit UK postcodes
     

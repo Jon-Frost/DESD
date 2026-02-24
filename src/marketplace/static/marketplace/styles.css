@@ -1,0 +1,44 @@
+/* src/marketplace/static/marketplace/style.css */
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background-color: #ffffff; /* White background */
+}
+
+.top-bar {
+    background-color: #e8f5e9; /* Pale green */
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #c8e6c9;
+}
+
+.brand-name {
+    font-weight: bold;
+    font-size: 1.2rem;
+    color: #2e7d32; /* Darker green for text */
+}
+
+.nav-links a {
+    margin-left: 20px;
+    text-decoration: none;
+    color: #333;
+}
+
+.container {
+    display: flex;
+    min-height: 90vh;
+}
+
+.sidebar {
+    width: 200px;
+    background-color: #f9f9f9;
+    padding: 20px;
+    border-right: 1px solid #eee;
+}
+
+.content {
+    flex: 1;
+    padding: 20px;
+}
