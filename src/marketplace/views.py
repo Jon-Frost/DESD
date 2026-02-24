@@ -3,7 +3,7 @@ from django.shortcuts import render
 from django.shortcuts import render, redirect
 from django.contrib.auth.forms import UserCreationForm
 from .models import Producer, Customer
-
+from .forms import CustomerSignupForm
 # Create your views here.
 def home(request):
     return render(request, 'marketplace/home.html')
@@ -25,14 +25,13 @@ def signup_producer(request):
         form = ProducerSignupForm()
     return render(request, 'marketplace/signup_producer.html', {'form': form})
 
+
 def signup_customer(request):
     if request.method == 'POST':
-        form = UserCreationForm(request.POST)
+        form = CustomerSignupForm(request.POST)
         if form.is_valid():
-            user = form.save()
-            # Create the customer profile
-            Customer.objects.create(user=user, city=request.POST.get('city'))
-            return redirect('login')
+            form.save()
+            return redirect('home') 
     else:
-        form = UserCreationForm()
+        form = CustomerSignupForm()
     return render(request, 'marketplace/signup_customer.html', {'form': form})
