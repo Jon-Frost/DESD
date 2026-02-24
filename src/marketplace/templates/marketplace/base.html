@@ -1,23 +1,26 @@
 {% load static %}
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>{% block title %}Bristol Food Network{% endblock %}</title>
-    <link rel="stylesheet" href="{% static 'marketplace/style.css' %}">
+    <link rel="stylesheet" href="{% static 'marketplace/styles.css' %}">
 </head>
 <body>
 
     <header class="top-bar">
         <div class="brand-name">Bristol Regional Food Network</div>
         <nav class="nav-links">
-            <a href="/">Home</a>
+            <a href="{% url 'home' %}">Home</a>
             {% if user.is_authenticated %}
+                <span>Welcome, {{ user.username }}</span>
                 <a href="#">Logout</a>
             {% else %}
+                <a href="{% url 'signup_choice' %}">Sign Up</a>
                 <a href="#">Login</a>
             {% endif %}
-        </nav>
+</nav>
     </header>
 
     <div class="container">
