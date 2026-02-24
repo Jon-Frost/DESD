@@ -78,17 +78,20 @@ WSGI_APPLICATION = 'core.wsgi.application'
 
 
 
+# src/core/settings.py
+import os
+
+# Database configuration using Environment Variables
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('POSTGRES_DB', 'bristol_food_db'),
-        'USER': os.environ.get('POSTGRES_USER', 'food_user'),
-        'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'food_password'),
-        'HOST': 'db',
-        'PORT': '5432', # Postgres default port
+        'NAME': os.environ.get('POSTGRES_DB'),
+        'USER': os.environ.get('POSTGRES_USER'),
+        'PASSWORD': os.environ.get('POSTGRES_PASSWORD'),
+        'HOST': os.environ.get('DB_HOST', 'db'),  # 'db' matches the service name in docker-compose.yml
+        'PORT': os.environ.get('DB_PORT', '5432'),
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators

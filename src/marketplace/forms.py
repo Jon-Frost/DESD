@@ -24,3 +24,33 @@ class ProducerSignupForm(forms.ModelForm):
         if commit:
             producer.save()
         return producer
+
+
+# src/marketplace/forms.py
+from django import forms
+from django.contrib.auth.models import User
+from .models import Customer
+
+class CustomerSignupForm(forms.ModelForm):
+    # Credentials
+    username = forms.CharField(max_length=150)
+    password = forms.CharField(widget=forms.PasswordInput)
+    
+    class Meta:
+        model = Customer
+        # Matching your model fields exactly
+        fields = ['name', 'email', 'phone_number', 'address', 'postcode']
+
+    def save(self, commit=True):
+        # 1. Create the Auth User
+        user = User.objects.create_user(
+            username=self.cleaned_data['username'],
+            password=self.cleaned_data['password'],
+            email=self.cleaned_data['email']
+        )
+        # 2. Create the Customer Profile
+        customer = super().save(commit=False)
+        customer.user = user
+        if commit:
+            customer.save()
+        return customer
