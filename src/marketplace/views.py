@@ -20,7 +20,7 @@ def signup_producer(request):
         form = ProducerSignupForm(request.POST)
         if form.is_valid():
             form.save()
-            return redirect('home') # Ensure you have a login URL named 'login'
+            return redirect('home')
     else:
         form = ProducerSignupForm()
     return render(request, 'marketplace/signup_producer.html', {'form': form})
