@@ -3,31 +3,32 @@
 {% block title %}Customer Sign Up - Bristol Food Network{% endblock %}
 
 {% block content %}
-<div style="max-width: 500px; margin: auto;">
-    <h2>Customer Registration</h2>
-    <p>Create an account to browse and buy local Bristol produce.</p>
+<div class="registration-container">
+    <h2 class="auth-title">Customer Registration</h2>
+    <p class="auth-subtitle">Create an account to browse and buy local Bristol produce.</p>
     
-    <form method="post" style="background: #f9f9f9; padding: 20px; border-radius: 8px; border: 1px solid #c8e6c9;">
+    <form method="post" class="auth-form">
         {% csrf_token %}
         
         {% for field in form %}
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; font-weight: bold; margin-bottom: 5px;">{{ field.label }}</label>
+            <div class="auth-field-group">
+                <label class="auth-label">{{ field.label }}</label>
                 {{ field }}
                 {% if field.errors %}
-                    <div style="color: #d32f2f; font-size: 0.85rem; margin-top: 5px;">
+                    <div class="field-error-msg">
                         {{ field.errors }}
                     </div>
                 {% endif %}
             </div>
         {% endfor %}
 
-        <button type="submit" style="background: #2e7d32; color: white; padding: 12px 25px; border: none; border-radius: 5px; cursor: pointer; width: 100%; font-size: 1rem;">
+        <button type="submit" class="auth-submit-btn">
             Join the Network
         </button>
     </form>
-    <p style="margin-top: 15px; text-align: center;">
-        Already have an account? <a href="{% url 'home' %}" style="color: #2e7d32;">Login here</a>
+
+    <p class="auth-footer-text">
+        Already have an account? <a href="{% url 'login' %}">Login here</a>
     </p>
 </div>
 {% endblock %}

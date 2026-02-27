@@ -1,0 +1,37 @@
+{% extends 'marketplace/base.html' %}
+
+{% block title %}Login - Bristol Food Network{% endblock %}
+
+{% block content %}
+<div class="login-auth-container">
+    <h2 class="auth-title">Login</h2>
+    
+    <form method="post" class="auth-form">
+        {% csrf_token %}
+        
+        {% if form.errors %}
+            <p class="auth-error-msg">
+                Your username and password didn't match. Please try again.
+            </p>
+        {% endif %}
+
+        <div class="auth-field-group">
+            <label class="auth-label">Username</label>
+            {{ form.username }}
+        </div>
+
+        <div class="auth-field-group">
+            <label class="auth-label">Password</label>
+            {{ form.password }}
+        </div>
+
+        <button type="submit" class="auth-submit-btn">
+            Log In
+        </button>
+    </form>
+
+    <p class="auth-footer-text">
+        Don't have an account? <a href="{% url 'signup_choice' %}">Sign up here</a>
+    </p>
+</div>
+{% endblock %}
