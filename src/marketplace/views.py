@@ -4,7 +4,7 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.forms import UserCreationForm
 from .models import Producer, Customer
 from .forms import CustomerSignupForm
-# Create your views here.
+# Create your views heer.
 def home(request):
     return render(request, 'marketplace/home.html')
 
