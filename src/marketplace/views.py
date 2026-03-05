@@ -4,7 +4,7 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.forms import UserCreationForm
 from .models import Producer, Customer
 from .forms import CustomerSignupForm
-# Create your views heer.
+
 def home(request):
     return render(request, 'marketplace/home.html')
 
@@ -14,7 +14,7 @@ def signup_choice(request):
     return render(request, 'marketplace/signup_choice.html')
 
 from .forms import ProducerSignupForm
-
+# USERS ARE DIRECTED TO HOME WHEN THEY ARE LOGGED IN. THIS IS THE SAME FOR PRODUCERS AND CUSTOMERS
 def signup_producer(request):
     if request.method == 'POST':
         form = ProducerSignupForm(request.POST)

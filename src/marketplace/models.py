@@ -1,11 +1,11 @@
 from django.db import models
 from phonenumber_field.modelfields import PhoneNumberField
-from django.contrib.auth.models import User # Built-in security
+from django.contrib.auth.models import User # USER HAS BUILT IN HASHING
 from django.core.validators import MinLengthValidator
 
 
-
-class Product(models.Model):
+# DRAFT MOFEL FOR PRODUCT, WE WILL NEED TO UPDATE IT FOR THE SPECIFICS
+"""class Product(models.Model): 
     
     name = models.CharField(max_length=200)
     description = models.TextField()
@@ -28,21 +28,21 @@ class Product(models.Model):
     category = models.CharField(max_length=10, choices=CATEGORY_CHOICES)
 
     def __str__(self):
-        return self.name
+        return self.name"""
 
-#used for signup
+# REGISTER AS PRODUCER
 class Producer(models.Model):
     
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.OneToOneField(User, on_delete=models.CASCADE) #ONE TO ONE TO ENSURE NO CUSTOMER OR PRODUCER CAN SHARE A USERNAME. IT ALSO HANDLES SECURITY
     business_name = models.CharField(max_length=200)
     contact_name = models.CharField(max_length=100)
     email = models.EmailField(max_length=254)
-    phone_number = PhoneNumberField(null=True, blank=True)
+    phone_number = PhoneNumberField(null=True, blank=True) # INTERNATIONAL PHONE NUMBER FIELD
     business_address = models.CharField(max_length=300)
-    postcode = models.CharField(max_length=7, validators=[MinLengthValidator(5)]) # Fit UK postcodes
+    postcode = models.CharField(max_length=7, validators=[MinLengthValidator(5)]) 
 
 
-#used for signup
+# REGISTER AS CUSTOMER
 class Customer(models.Model):
 
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -50,5 +50,5 @@ class Customer(models.Model):
     email = models.EmailField(max_length=100)
     phone_number = PhoneNumberField(null=True, blank = True)
     address = models.CharField(max_length=100)
-    postcode = models.CharField(max_length=7, validators=[MinLengthValidator(5)]) # Fit UK postcodes
+    postcode = models.CharField(max_length=7, validators=[MinLengthValidator(5)]) # FIT UK POSTCODES
     

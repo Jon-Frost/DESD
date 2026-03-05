@@ -47,19 +47,19 @@ body {
 
 /* --- LOGIN.HTML STYLES --- */
 
-/* Login.html - The outer wrapper */
+/* The outer wrapper */
 .login-auth-container {
     max-width: 400px;
     margin: auto;
     padding-top: 50px;
 }
 
-/* Login.html - The Login heading */
+/* The Login heading */
 .auth-title {
     text-align: center;
 }
 
-/* Login.html - The main form box */
+/* The main form box */
 .auth-form {
     background: #f9f9f9;
     padding: 30px;
@@ -68,19 +68,19 @@ body {
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-/* Login.html - Spacing for each input */
+/* Spacing for each input */
 .auth-field-group {
     margin-bottom: 15px;
 }
 
-/* Login.html - Labels for Username/Password */
+/* Labels for Username/Password */
 .auth-label {
     display: block;
     font-weight: bold;
     margin-bottom: 5px;
 }
 
-/* Login.html - Input boxes */
+/* Input boxes */
 .auth-form input {
     width: 100%;
     padding: 8px;
@@ -89,7 +89,7 @@ body {
     box-sizing: border-box;
 }
 
-/* Login.html - The green submit button */
+/* The green submit button */
 .auth-submit-btn {
     background: #2e7d32;
     color: white;
@@ -101,7 +101,7 @@ body {
     font-size: 1rem;
 }
 
-/* Login.html - Error message */
+/* Error message */
 .auth-error-msg {
     color: #d32f2f;
     background: #ffebee;
@@ -109,7 +109,7 @@ body {
     border-radius: 4px;
 }
 
-/* Login.html - Link text */
+/* Link text */
 .auth-footer-text {
     margin-top: 15px;
     text-align: center;
@@ -122,13 +122,13 @@ body {
 
 /* --- SIGNUP-CHOICE.HTML STYLES --- */
 
-/* signup-choice.html - Main outer container */
+/* Main outer container */
 .choice-container {
     text-align: center; 
     padding: 50px;
 }
 
-/* signup-choice.html - Heading styles */
+/* Heading styles */
 .choice-title {
     margin-bottom: 10px;
 }
@@ -137,7 +137,7 @@ body {
     color: #666;
 }
 
-/* signup-choice.html - Wrapper for the two cards */
+/* Wrapper for the two cards */
 .choice-card-wrapper {
     display: flex; 
     justify-content: center; 
@@ -145,7 +145,7 @@ body {
     margin-top: 30px;
 }
 
-/* signup-choice.html - Shared styles for the producer/customer cards */
+/* Shared styles for the producer/customer cards */
 .choice-card {
     padding: 20px; 
     text-decoration: none; 
@@ -156,17 +156,17 @@ body {
     transition: transform 0.2s, box-shadow 0.2s; /* Hover effect */
 }
 
-/* signup-choice.html - Specific background for Producer card */
+/* Specific background for Producer card */
 .producer-card {
     background: #e8f5e9;
 }
 
-/* signup-choice.html - Specific background for Customer card */
+/* Specific background for Customer card */
 .customer-card {
     background: #f1f8e9;
 }
 
-/* signup-choice.html - Hover effect when selecting producer or customer */
+/* Hover effect when selecting producer or customer */
 .choice-card:hover {
     transform: translateY(-5px);
     box-shadow: 0 4px 8px rgba(0,0,0,0.1);
@@ -179,21 +179,21 @@ body {
 
 /* --- SIGNUP_CUSTOMER.HTML STYLES --- */
 
-/* signup_customer.html - Main outer container*/
+/* Main outer container */
 .registration-container {
     max-width: 500px; 
     margin: auto;
     padding-top: 30px;
 }
 
-/* signup_customer.html - Subtitle text under the heading */
+/* Subtitle text under the heading */
 .auth-subtitle {
     text-align: center;
     color: #555;
     margin-bottom: 20px;
 }
 
-/* signup_customer.html - Error messages for postcode/phonenumber fields */
+/* Error messages for postcode/phonenumber fields */
 .field-error-msg {
     color: #d32f2f; 
     font-size: 0.85rem; 
