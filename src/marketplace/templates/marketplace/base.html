@@ -11,18 +11,25 @@
 
     <header class="top-bar">
         <div class="brand-name">Bristol Regional Food Network</div>
-        <nav class="nav-links">
+        <nav>
             <a href="{% url 'home' %}">Home</a>
             {% if user.is_authenticated %}
-                <span>Welcome, {{ user.username }}</span>
-                <a href="#">Logout</a>
+                <span>Logged in as: <strong>{{ user.username }}</strong></span>
+        
+                <form action="{% url 'logout' %}" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" style="background: none; border: none; color: #2e7d32; cursor: pointer; text-decoration: underline; padding: 0; font: inherit;">
+                        Logout
+                    </button>
+                </form>
             {% else %}
                 <a href="{% url 'signup_choice' %}">Sign Up</a>
-                <a href="#">Login</a>
+                <a href="{% url 'login' %}">Login</a>
             {% endif %}
-</nav>
+        </nav>
     </header>
-
+<! Thinkin of using the sidebar to add user specific information. 
+   Like their order hsitory and other things>
     <div class="container">
         <aside class="sidebar">
             <h3>Menu</h3>

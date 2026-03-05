@@ -4,7 +4,7 @@ from django.contrib.auth.models import User # Built-in security
 from django.core.validators import MinLengthValidator
 
 
-# Create your models here.
+
 class Product(models.Model):
     
     name = models.CharField(max_length=200)
@@ -29,7 +29,8 @@ class Product(models.Model):
 
     def __str__(self):
         return self.name
-    
+
+#used for signup
 class Producer(models.Model):
     
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -39,7 +40,9 @@ class Producer(models.Model):
     phone_number = PhoneNumberField(null=True, blank=True)
     business_address = models.CharField(max_length=300)
     postcode = models.CharField(max_length=7, validators=[MinLengthValidator(5)]) # Fit UK postcodes
-    
+
+
+#used for signup
 class Customer(models.Model):
 
     user = models.OneToOneField(User, on_delete=models.CASCADE)
