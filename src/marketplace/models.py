@@ -5,7 +5,7 @@ from django.core.validators import MinLengthValidator
 
 
 # DRAFT MOFEL FOR PRODUCT, WE WILL NEED TO UPDATE IT FOR THE SPECIFICS
-"""class Product(models.Model): 
+class Product(models.Model): 
     
     name = models.CharField(max_length=200)
     description = models.TextField()
@@ -28,7 +28,7 @@ from django.core.validators import MinLengthValidator
     category = models.CharField(max_length=10, choices=CATEGORY_CHOICES)
 
     def __str__(self):
-        return self.name"""
+        return self.name
 
 # REGISTER AS PRODUCER
 class Producer(models.Model):
