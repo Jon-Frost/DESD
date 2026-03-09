@@ -1,0 +1,44 @@
+{% extends 'marketplace/base.html' %}
+
+{% block title %}Add New Produce - Bristol Food Network{% endblock %}
+
+{% block content %}
+<div class="registration-container">
+    <h2 class="auth-title">Add New Produce</h2>
+    <p class="auth-subtitle">List your fresh Bristol items for the local community.</p>
+    
+    <form method="post" class="auth-form">
+        {% csrf_token %}
+        
+        {% for field in form %}
+            <div class="auth-field-group">
+                <label class="auth-label" for="{{ field.id_for_label }}">
+                    {{ field.label }}
+                </label>
+                
+                {{ field }}
+                
+                {% if field.help_text %}
+                    <small class="field-help-text" style="display: block; color: #666; font-size: 0.85rem; margin-top: 5px; font-style: italic;">
+                        {{ field.help_text }}
+                    </small>
+                {% endif %}
+
+                {% if field.errors %}
+                    <div class="field-error-msg" style="color: #d32f2f; font-size: 0.85rem; margin-top: 5px;">
+                        {{ field.errors }}
+                    </div>
+                {% endif %}
+            </div>
+        {% endfor %}
+
+        <button type="submit" class="auth-submit-btn" style="margin-top: 20px;">
+            List Product
+        </button>
+    </form>
+    
+    <p class="auth-footer-text" style="margin-top: 20px; text-align: center;">
+        <a href="{% url 'home' %}" style="color: #2e7d32;">← Cancel and return to home</a>
+    </p>
+</div>
+{% endblock %}

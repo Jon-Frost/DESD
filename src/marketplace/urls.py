@@ -9,4 +9,5 @@ urlpatterns = [
     path('signup/customer/', views.signup_customer, name='signup_customer'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('login/', auth_views.LoginView.as_view(template_name='marketplace/login.html'), name='login'),
+    path('products/add/', views.add_product, name='add_product'),
 ]

@@ -34,6 +34,10 @@
         <aside class="sidebar">
             <h3>Menu</h3>
             <ul>
+                <li><a href="{% url 'home' %}">Home</a></li>
+                {% if user.is_authenticated and user.producer %}
+                    <li><a href="{% url 'add_product' %}" style="font-weight: bold; color: #2e7d32;">+ Add Product</a></li>
+                {% endif %}
                 <li><a href="#">Producers</a></li>
                 <li><a href="#">Products</a></li>
             </ul>
