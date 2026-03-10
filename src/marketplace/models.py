@@ -11,6 +11,7 @@ class Producer(models.Model):
     phone_number = PhoneNumberField(null=True, blank=True)
     business_address = models.CharField(max_length=300)
     postcode = models.CharField(max_length=7, validators=[MinLengthValidator(5)])
+    bio = models.TextField(blank=True)
 
     def __str__(self):
         return self.business_name

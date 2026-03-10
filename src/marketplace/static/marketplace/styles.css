@@ -468,3 +468,48 @@ body {
         max-height: 420px;
     }
 }
+
+/* --- PRODUCER BIO PAGES --- */
+
+.producer-bio-container {
+    max-width: 620px;
+}
+
+.producer-bio-info-panel {
+    margin-top: 18px;
+}
+
+.producer-bio-last-meta {
+    margin-bottom: 0;
+}
+
+.producer-bio-form {
+    margin-top: 20px;
+}
+
+.producer-bio-text-panel {
+    margin-top: 18px;
+}
+
+.producer-bio-text {
+    margin: 0;
+    line-height: 1.7;
+    color: #333;
+    white-space: pre-wrap;
+}
+
+.producer-bio-empty {
+    margin: 0;
+    color: #888;
+    font-style: italic;
+}
+
+.producer-bio-link {
+    color: #2e7d32;
+    text-decoration: underline;
+}
+
+.producer-bio-link:hover,
+.producer-bio-link:focus {
+    color: #1b5e20;
+}

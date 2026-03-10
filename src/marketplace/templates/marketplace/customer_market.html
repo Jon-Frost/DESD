@@ -31,7 +31,8 @@
                         {% endif %}
                     </p>
                     <p class="producer-product-meta">
-                        <strong>Producer:</strong> {{ product.producer.business_name }}
+                        <strong>Producer:</strong>
+                        <a href="{% url 'producer_bio_public' product.producer.id %}" class="producer-bio-link">{{ product.producer.business_name }}</a>
                     </p>
                     <p class="producer-product-meta">
                         <strong>Address:</strong> {{ product.producer.business_address }}, {{ product.producer.postcode }}
