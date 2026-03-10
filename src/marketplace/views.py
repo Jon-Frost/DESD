@@ -1,7 +1,7 @@
 from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib.auth.decorators import login_required
 from .models import Producer, Customer, Product
-from .forms import CustomerSignupForm, ProducerSignupForm, ProductForm
+from .forms import CustomerSignupForm, ProducerSignupForm, ProductForm, ProducerBioForm
 
 def home(request):
     return render(request, 'marketplace/home.html')
@@ -137,4 +137,38 @@ def customer_market(request):
         request,
         'marketplace/customer_market.html',
         {'products': products}
+    )
+
+
+@login_required
+def producer_bio(request):
+    producer_profile = _get_logged_in_producer(request.user)
+    if producer_profile is None:
+        return redirect('home')
+
+    if request.method == 'POST':
+        form = ProducerBioForm(request.POST, instance=producer_profile)
+        if form.is_valid():
+            form.save()
+            return redirect('producer_bio')
+    else:
+        form = ProducerBioForm(instance=producer_profile)
+
+    return render(
+        request,
+        'marketplace/producer_bio.html',
+        {
+            'form': form,
+            'producer': producer_profile,
+        }
+    )
+
+
+@login_required
+def producer_bio_public(request, producer_id):
+    producer = get_object_or_404(Producer, id=producer_id)
+    return render(
+        request,
+        'marketplace/producer_bio_public.html',
+        {'producer': producer}
     )

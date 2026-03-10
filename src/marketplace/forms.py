@@ -42,6 +42,20 @@ class CustomerSignupForm(forms.ModelForm):
             customer.save()
         return customer
 
+class ProducerBioForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['bio'].widget.attrs.update({'class': 'auth-field', 'rows': 6})
+        self.fields['bio'].label = 'About your business'
+
+    class Meta:
+        model = Producer
+        fields = ['bio']
+        widgets = {
+            'bio': forms.Textarea(attrs={'rows': 6}),
+        }
+
+
 class ProductForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

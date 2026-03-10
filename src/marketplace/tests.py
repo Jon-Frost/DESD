@@ -204,3 +204,53 @@ class CustomerMarketViewTests(TestCase):
         response = self.client.get(reverse('customer_market'))
 
         self.assertRedirects(response, reverse('home'))
+
+
+class ProducerBioViewTests(TestCase):
+    def setUp(self):
+        self.producer_user = User.objects.create_user(username='bio_producer', password='testpass123')
+        self.customer_user = User.objects.create_user(username='bio_customer', password='testpass123')
+
+        self.producer = Producer.objects.create(
+            user=self.producer_user,
+            business_name='Valley Farm',
+            contact_name='Val Farmer',
+            email='val@example.com',
+            business_address='3 Valley Way',
+            postcode='BS55EE'
+        )
+        self.customer = Customer.objects.create(
+            user=self.customer_user,
+            name='Dana Shopper',
+            email='dana@example.com',
+            address='8 North Street',
+            postcode='BS66FF'
+        )
+
+    def test_producer_can_save_bio(self):
+        self.client.login(username='bio_producer', password='testpass123')
+        response = self.client.post(
+            reverse('producer_bio'),
+            {'bio': 'We grow seasonal vegetables on our family farm.'}
+        )
+
+        self.producer.refresh_from_db()
+        self.assertRedirects(response, reverse('producer_bio'))
+        self.assertEqual(self.producer.bio, 'We grow seasonal vegetables on our family farm.')
+
+    def test_non_producer_cannot_access_bio_edit_page(self):
+        self.client.login(username='bio_customer', password='testpass123')
+        response = self.client.get(reverse('producer_bio'))
+
+        self.assertRedirects(response, reverse('home'))
+
+    def test_customer_can_view_producer_public_bio(self):
+        self.producer.bio = 'Fresh produce direct from the valley.'
+        self.producer.save()
+
+        self.client.login(username='bio_customer', password='testpass123')
+        response = self.client.get(reverse('producer_bio_public', args=[self.producer.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.producer.business_name)
+        self.assertContains(response, self.producer.bio)
