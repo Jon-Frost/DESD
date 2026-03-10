@@ -1,0 +1,44 @@
+{% extends 'marketplace/base.html' %}
+
+{% block title %}Edit Listing - Bristol Food Network{% endblock %}
+
+{% block content %}
+<div class="registration-container producer-edit-container">
+    <h2 class="auth-title">Edit Listing</h2>
+    <p class="auth-subtitle">Update your product details below.</p>
+
+    <form method="post" class="auth-form">
+        {% csrf_token %}
+
+        {% for field in form %}
+            <div class="auth-field-group">
+                <label class="auth-label" for="{{ field.id_for_label }}">
+                    {{ field.label }}
+                </label>
+
+                {{ field }}
+
+                {% if field.help_text %}
+                    <small class="field-help-text producer-field-help-text">
+                        {{ field.help_text }}
+                    </small>
+                {% endif %}
+
+                {% if field.errors %}
+                    <div class="field-error-msg producer-field-error-msg">
+                        {{ field.errors }}
+                    </div>
+                {% endif %}
+            </div>
+        {% endfor %}
+
+        <button type="submit" class="auth-submit-btn producer-submit-btn">
+            Save Changes
+        </button>
+    </form>
+
+    <p class="auth-footer-text producer-footer-text">
+        <a href="{% url 'producer_product_actions' product.id %}" class="producer-home-link">← Back to listing actions</a>
+    </p>
+</div>
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends 'marketplace/base.html' %}
+
+{% block title %}Market - Bristol Food Network{% endblock %}
+
+{% block content %}
+<div class="registration-container producer-action-container">
+    <h2 class="auth-title">Market</h2>
+    <p class="auth-subtitle">Browse all listings from producers across the network.</p>
+
+    <div class="producer-panel producer-gallery-panel">
+        <div class="producer-product-list">
+            {% for product in products %}
+                <article class="producer-product-card">
+                    <div class="producer-product-header">
+                        <h3>{{ product.name }}</h3>
+                        <span class="producer-product-price">£{{ product.price }} / {{ product.unit }}</span>
+                    </div>
+
+                    <p class="producer-product-meta">
+                        <strong>Category:</strong> {{ product.get_category_display }}
+                    </p>
+                    <p class="producer-product-meta">
+                        <strong>Stock:</strong> {{ product.stock_quantity }}
+                    </p>
+                    <p class="producer-product-meta">
+                        <strong>Organic:</strong>
+                        {% if product.is_organic %}
+                            Yes
+                        {% else %}
+                            No
+                        {% endif %}
+                    </p>
+                    <p class="producer-product-meta">
+                        <strong>Producer:</strong> {{ product.producer.business_name }}
+                    </p>
+                    <p class="producer-product-meta">
+                        <strong>Address:</strong> {{ product.producer.business_address }}, {{ product.producer.postcode }}
+                    </p>
+                    <p class="producer-product-description">{{ product.description }}</p>
+
+                    {% if product.allergen_information %}
+                        <p class="producer-product-allergens">
+                            <strong>Allergen information:</strong> {{ product.allergen_information }}
+                        </p>
+                    {% endif %}
+                </article>
+            {% empty %}
+                <div class="producer-empty-state">
+                    <p>No products are listed yet.</p>
+                    <p>Please check back later for new items from local producers.</p>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

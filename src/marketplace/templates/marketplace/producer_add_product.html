@@ -3,42 +3,93 @@
 {% block title %}Add New Produce - Bristol Food Network{% endblock %}
 
 {% block content %}
-<div class="registration-container">
-    <h2 class="auth-title">Add New Produce</h2>
-    <p class="auth-subtitle">List your fresh Bristol items for the local community.</p>
-    
-    <form method="post" class="auth-form">
-        {% csrf_token %}
-        
-        {% for field in form %}
-            <div class="auth-field-group">
-                <label class="auth-label" for="{{ field.id_for_label }}">
-                    {{ field.label }}
-                </label>
-                
-                {{ field }}
-                
-                {% if field.help_text %}
-                    <small class="field-help-text" style="display: block; color: #666; font-size: 0.85rem; margin-top: 5px; font-style: italic;">
-                        {{ field.help_text }}
-                    </small>
-                {% endif %}
+<div class="producer-product-page">
+    <div class="producer-product-column producer-form-column">
+        <div class="producer-panel">
+            <h2 class="auth-title">Add New Produce</h2>
+            <p class="auth-subtitle">List your fresh Bristol items for the local community.</p>
 
-                {% if field.errors %}
-                    <div class="field-error-msg" style="color: #d32f2f; font-size: 0.85rem; margin-top: 5px;">
-                        {{ field.errors }}
+            <form method="post" class="auth-form">
+                {% csrf_token %}
+
+                {% for field in form %}
+                    <div class="auth-field-group">
+                        <label class="auth-label" for="{{ field.id_for_label }}">
+                            {{ field.label }}
+                        </label>
+
+                        {{ field }}
+
+                        {% if field.help_text %}
+                            <small class="field-help-text producer-field-help-text">
+                                {{ field.help_text }}
+                            </small>
+                        {% endif %}
+
+                        {% if field.errors %}
+                            <div class="field-error-msg producer-field-error-msg">
+                                {{ field.errors }}
+                            </div>
+                        {% endif %}
                     </div>
-                {% endif %}
-            </div>
-        {% endfor %}
+                {% endfor %}
 
-        <button type="submit" class="auth-submit-btn" style="margin-top: 20px;">
-            List Product
-        </button>
-    </form>
-    
-    <p class="auth-footer-text" style="margin-top: 20px; text-align: center;">
-        <a href="{% url 'home' %}" style="color: #2e7d32;">← Cancel and return to home</a>
-    </p>
+                <button type="submit" class="auth-submit-btn producer-submit-btn">
+                    List Product
+                </button>
+            </form>
+
+            <p class="auth-footer-text producer-footer-text">
+                <a href="{% url 'home' %}" class="producer-home-link">← Cancel and return to home</a>
+            </p>
+        </div>
+    </div>
+
+    <div class="producer-product-column producer-gallery-column">
+        <div class="producer-panel producer-gallery-panel">
+            <h2 class="auth-title">Your Listed Products</h2>
+            <p class="auth-subtitle">Everything you currently have available on the marketplace.</p>
+
+            <div class="producer-product-list">
+                {% for product in producer_products %}
+                    <a href="{% url 'producer_product_actions' product.id %}" class="producer-product-card-link">
+                        <article class="producer-product-card">
+                            <div class="producer-product-header">
+                                <h3>{{ product.name }}</h3>
+                                <span class="producer-product-price">£{{ product.price }} / {{ product.unit }}</span>
+                            </div>
+
+                            <p class="producer-product-meta">
+                                <strong>Category:</strong> {{ product.get_category_display }}
+                            </p>
+                            <p class="producer-product-meta">
+                                <strong>Stock:</strong> {{ product.stock_quantity }}
+                            </p>
+                            <p class="producer-product-meta">
+                                <strong>Organic:</strong>
+                                {% if product.is_organic %}
+                                    Yes
+                                {% else %}
+                                    No
+                                {% endif %}
+                            </p>
+                            <p class="producer-product-description">{{ product.description }}</p>
+
+                            {% if product.allergen_information %}
+                                <p class="producer-product-allergens">
+                                    <strong>Allergen information:</strong> {{ product.allergen_information }}
+                                </p>
+                            {% endif %}
+                        </article>
+                    </a>
+                {% empty %}
+                    <div class="producer-empty-state">
+                        <p>You have not listed any products yet.</p>
+                        <p>Add your first item using the form on the left.</p>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
