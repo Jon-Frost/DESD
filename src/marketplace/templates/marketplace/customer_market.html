@@ -7,6 +7,101 @@
     <h2 class="auth-title">Market</h2>
     <p class="auth-subtitle">Browse all listings from producers across the network.</p>
 
+    <!-- MARKET FILTER FORM - USES GET SO FILTERS ARE VISIBLE IN THE URL -->
+    <div class="producer-panel market-filter-panel">
+        <form method="get" action="{% url 'customer_market' %}" class="market-filter-form">
+            <!-- MINIMUM PRICE FILTER -->
+            <div class="market-filter-field">
+                <label class="auth-label" for="min_price">Min Price (£)</label>
+                <input
+                    class="auth-field"
+                    type="number"
+                    name="min_price"
+                    id="min_price"
+                    min="0"
+                    step="0.01"
+                    value="{{ selected_filters.min_price }}"
+                    placeholder="0.00"
+                >
+            </div>
+
+            <!-- MAXIMUM PRICE FILTER -->
+            <div class="market-filter-field">
+                <label class="auth-label" for="max_price">Max Price (£)</label>
+                <input
+                    class="auth-field"
+                    type="number"
+                    name="max_price"
+                    id="max_price"
+                    min="0"
+                    step="0.01"
+                    value="{{ selected_filters.max_price }}"
+                    placeholder="100.00"
+                >
+            </div>
+
+            <!-- ORGANIC STATUS FILTER -->
+            <div class="market-filter-field">
+                <label class="auth-label" for="organic">Organic</label>
+                <select class="auth-field" name="organic" id="organic">
+                    <option value="all" {% if selected_filters.organic == 'all' %}selected{% endif %}>All</option>
+                    <option value="true" {% if selected_filters.organic == 'true' %}selected{% endif %}>Organic Only</option>
+                    <option value="false" {% if selected_filters.organic == 'false' %}selected{% endif %}>Non-Organic Only</option>
+                </select>
+            </div>
+
+            <!-- PRODUCT CATEGORY FILTER -->
+            <div class="market-filter-field">
+                <label class="auth-label" for="category">Category</label>
+                <select class="auth-field" name="category" id="category">
+                    <option value="">All Categories</option>
+                    {% for category_code, category_label in category_choices %}
+                        <option value="{{ category_code }}" {% if selected_filters.category == category_code %}selected{% endif %}>
+                            {{ category_label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- ALLERGEN FILTERS - SELECT ONE AT A TIME, REOPEN TO ADD MORE EXCLUDED ALLERGENS -->
+            <div class="market-filter-field market-filter-field--full">
+                <label class="auth-label" for="allergen-picker">Exclude Allergens</label>
+                <select class="auth-field allergen-picker-select" id="allergen-picker" data-allergen-dropdown>
+                    <option value="">Select allergen</option>
+                    {% for allergen_code, allergen_label in allergen_choices %}
+                        <option value="{{ allergen_code }}">
+                            {{ allergen_label }}
+                        </option>
+                    {% endfor %}
+                </select>
+
+                <small class="field-help-text producer-field-help-text">
+                    Select one allergen at a time. Reopen the dropdown to add another exclusion.
+                </small>
+
+                <div class="allergen-selected-list" data-selected-list>
+                    {% for selected_code in selected_filters.allergens %}
+                        {% for allergen_code, allergen_label in allergen_choices %}
+                            {% if allergen_code == selected_code %}
+                                <span class="allergen-chip" data-allergen-chip="{{ allergen_code }}">
+                                    {{ allergen_label }}
+                                    <button type="button" class="allergen-chip-remove" data-remove-allergen="{{ allergen_code }}">×</button>
+                                </span>
+                                <input type="hidden" name="allergens" value="{{ allergen_code }}" data-hidden-allergen="{{ allergen_code }}">
+                            {% endif %}
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- FILTER ACTION BUTTONS -->
+            <div class="market-filter-actions">
+                <button type="submit" class="add-to-basket-btn">Apply Filters</button>
+                <a href="{% url 'customer_market' %}" class="market-filter-reset">Clear</a>
+            </div>
+        </form>
+    </div>
+
     <!-- DISPLAY DJANGO MESSAGES (E.G. BASKET FEEDBACK) AT THE TOP OF THE PAGE -->
     {% if messages %}
         <div class="market-messages">
@@ -49,9 +144,12 @@
                     </p>
                     <p class="producer-product-description">{{ product.description }}</p>
 
-                    {% if product.allergen_information %}
+                    {% if product.allergens %}
                         <p class="producer-product-allergens">
-                            <strong>Allergen information:</strong> {{ product.allergen_information }}
+                            <strong>Allergens:</strong>
+                            {% for allergen_label in product.get_allergen_labels %}
+                                {{ allergen_label }}{% if not forloop.last %}, {% endif %}
+                            {% endfor %}
                         </p>
                     {% endif %}
 
@@ -81,11 +179,76 @@
                 </article>
             {% empty %}
                 <div class="producer-empty-state">
-                    <p>No products are listed yet.</p>
-                    <p>Please check back later for new items from local producers.</p>
+                    <p>No products match the current filters.</p>
+                    <p>Try widening your filters or clear them to see all products.</p>
                 </div>
             {% endfor %}
         </div>
     </div>
 </div>
+
+<script>
+// CUSTOMER ALLERGEN FILTER PICKER - ADDS ONE EXCLUSION PER DROPDOWN SELECTION
+(function () {
+    // GET THE DROPDOWN AND SELECTED EXCLUSION TAG CONTAINER
+    var dropdown = document.querySelector('[data-allergen-dropdown]');
+    var selectedList = document.querySelector('[data-selected-list]');
+
+    if (!dropdown || !selectedList) {
+        return;
+    }
+
+    // ADD A NEW EXCLUDED ALLERGEN AS A TAG + HIDDEN INPUT FOR GET FILTERING
+    function addAllergen(code, label) {
+        if (!code) {
+            return;
+        }
+
+        // SKIP DUPLICATES IF THIS ALLERGEN IS ALREADY IN THE EXCLUSION LIST
+        if (selectedList.querySelector('[data-hidden-allergen="' + code + '"]')) {
+            return;
+        }
+
+        var chip = document.createElement('span');
+        chip.className = 'allergen-chip';
+        chip.setAttribute('data-allergen-chip', code);
+        chip.innerHTML = label + ' <button type="button" class="allergen-chip-remove" data-remove-allergen="' + code + '">×</button>';
+
+        var hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = 'allergens';
+        hiddenInput.value = code;
+        hiddenInput.setAttribute('data-hidden-allergen', code);
+
+        selectedList.appendChild(chip);
+        selectedList.appendChild(hiddenInput);
+    }
+
+    dropdown.addEventListener('change', function () {
+        // ADD THE NEW EXCLUSION THEN RESET THE DROPDOWN PLACEHOLDER
+        var selectedCode = dropdown.value;
+        var selectedLabel = dropdown.options[dropdown.selectedIndex].text;
+        addAllergen(selectedCode, selectedLabel);
+        dropdown.value = '';
+    });
+
+    selectedList.addEventListener('click', function (event) {
+        // REMOVE TAG + HIDDEN INPUT WHEN THE USER CLICKS THE X BUTTON
+        if (!event.target.matches('[data-remove-allergen]')) {
+            return;
+        }
+
+        var code = event.target.getAttribute('data-remove-allergen');
+        var chip = selectedList.querySelector('[data-allergen-chip="' + code + '"]');
+        var hiddenInput = selectedList.querySelector('[data-hidden-allergen="' + code + '"]');
+
+        if (chip) {
+            chip.remove();
+        }
+        if (hiddenInput) {
+            hiddenInput.remove();
+        }
+    });
+})();
+</script>
 {% endblock %}

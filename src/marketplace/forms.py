@@ -58,19 +58,47 @@ class ProducerBioForm(forms.ModelForm):
 
 
 class ProductForm(forms.ModelForm):
+    # ALLERGEN FIELD - STORES ZERO, ONE, OR MANY
+    allergens = forms.MultipleChoiceField(
+        choices=Product.ALLERGEN_CHOICES,
+        required=False,
+        widget=forms.SelectMultiple(attrs={'class': 'producer-allergen-select', 'size': 8}),
+    )
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        # PRE-POPULATE THE ALLERGEN LIST WHEN EDITING AN EXISTING PRODUCT
+        if self.instance and self.instance.pk:
+            self.fields['allergens'].initial = self.instance.allergens
+
         for field_name, field in self.fields.items():
-            if not isinstance(field.widget, forms.CheckboxInput):
-                field.widget.attrs.update({'class': 'auth-field'})
+            if not isinstance(field.widget, (forms.CheckboxInput, forms.CheckboxSelectMultiple)):
+                # PRESERVE EXISTING CLASSES WHILE ADDING THE STANDARD AUTH FIELD CLASS
+                existing_classes = field.widget.attrs.get('class', '')
+                combined_classes = f"{existing_classes} auth-field".strip()
+                field.widget.attrs.update({'class': combined_classes})
 
     class Meta:
         model = Product
-        fields = ['name', 'category', 'description', 'price', 'unit', 'stock_quantity', 'is_organic', 'allergen_information']
+        fields = ['name', 'category', 'description', 'price', 'unit', 'stock_quantity', 'is_organic', 'allergens']
         widgets = {
             'description': forms.Textarea(attrs={'rows': 3}),
-            'allergen_information': forms.Textarea(attrs={'rows': 2}),
         }
+
+    def clean_allergens(self):
+        # VALIDATE THAT ONLY SUPPORTED ALLERGEN KEYS ARE SUBMITTED
+        selected_allergens = self.cleaned_data.get('allergens', [])
+        valid_allergens = {choice[0] for choice in Product.ALLERGEN_CHOICES}
+        return [allergen for allergen in selected_allergens if allergen in valid_allergens]
+
+    def save(self, commit=True):
+        # SAVE THE PRODUCT WITH THE SELECTED ALLERGEN LIST IN THE JSON FIELD
+        product = super().save(commit=False)
+        product.allergens = self.cleaned_data.get('allergens', [])
+        if commit:
+            product.save()
+        return product
 
 
 # CHECKOUT FORM - COLLECTS DELIVERY AND PAYMENT DETAILS FROM THE CUSTOMER AT CHECKOUT
