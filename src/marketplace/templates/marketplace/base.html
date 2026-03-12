@@ -11,6 +11,24 @@
 
     <header class="top-bar">
         <div class="brand-name">Bristol Regional Food Network</div>
+
+        <!-- BASKET ICON - DISPLAYED IN THE TOP BAR FOR LOGGED-IN CUSTOMERS -->
+        <!-- SHOWS THE NUMBER OF DISTINCT PRODUCT LINES CURRENTLY IN THE BASKET -->
+        <div class="basket-icon-wrapper">
+            {% if user.is_authenticated %}
+                {% if is_customer %}
+                    <a href="{% url 'view_basket' %}" class="basket-icon-link" title="View Basket">
+                        🛒
+                        <!-- DISPLAY THE BASKET COUNT BADGE IF THERE ARE ITEMS -->
+                        {% if basket_count > 0 %}
+                            <span class="basket-count-badge">{{ basket_count }}</span>
+                        {% endif %}
+                        Basket
+                    </a>
+                {% endif %}
+            {% endif %}
+        </div>
+
         <nav>
             <a href="{% url 'home' %}">Home</a>
             {% if user.is_authenticated %}
@@ -28,19 +46,21 @@
             {% endif %}
         </nav>
     </header>
-<! Thinkin of using the sidebar to add user specific information. 
-   Like their order hsitory and other things>
+<!-- THINKING OF USING THE SIDEBAR TO ADD USER SPECIFIC INFORMATION,
+     LIKE ORDER HISTORY AND OTHER THINGS -->
     <div class="container">
         <aside class="sidebar">
             <h3>Menu</h3>
             <ul>
                 <li><a href="{% url 'home' %}">Home</a></li>
-                {% if user.is_authenticated and user.producer %}
+                {% if user.is_authenticated and is_producer %}
                     <li><a href="{% url 'add_product' %}" style="font-weight: bold; color: #2e7d32;">+ Add Product</a></li>
                     <li><a href="{% url 'producer_bio' %}" style="font-weight: bold; color: #2e7d32;">My Bio</a></li>
                 {% endif %}
-                {% if user.is_authenticated and user.customer %}
+                {% if user.is_authenticated and is_customer %}
                     <li><a href="{% url 'customer_market' %}" style="font-weight: bold; color: #2e7d32;">Market</a></li>
+                    <!-- BASKET SIDEBAR LINK - LETS CUSTOMERS NAVIGATE TO THEIR BASKET FROM ANY PAGE -->
+                    <li><a href="{% url 'view_basket' %}" style="font-weight: bold; color: #2e7d32;">🛒 Basket{% if basket_count > 0 %} ({{ basket_count }}){% endif %}</a></li>
                 {% endif %}
                 <li><a href="#">Producers</a></li>
                 <li><a href="#">Products</a></li>
