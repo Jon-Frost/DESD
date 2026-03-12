@@ -7,6 +7,15 @@
     <h2 class="auth-title">Market</h2>
     <p class="auth-subtitle">Browse all listings from producers across the network.</p>
 
+    <!-- DISPLAY DJANGO MESSAGES (E.G. BASKET FEEDBACK) AT THE TOP OF THE PAGE -->
+    {% if messages %}
+        <div class="market-messages">
+            {% for message in messages %}
+                <p class="market-message market-message--{{ message.tags }}">{{ message }}</p>
+            {% endfor %}
+        </div>
+    {% endif %}
+
     <div class="producer-panel producer-gallery-panel">
         <div class="producer-product-list">
             {% for product in products %}
@@ -20,6 +29,7 @@
                         <strong>Category:</strong> {{ product.get_category_display }}
                     </p>
                     <p class="producer-product-meta">
+                        <!-- SHOW REMAINING STOCK SO CUSTOMERS KNOW HOW MUCH IS AVAILABLE -->
                         <strong>Stock:</strong> {{ product.stock_quantity }}
                     </p>
                     <p class="producer-product-meta">
@@ -44,6 +54,30 @@
                             <strong>Allergen information:</strong> {{ product.allergen_information }}
                         </p>
                     {% endif %}
+
+                    <!-- ADD TO BASKET FORM - ONLY SHOWN WHEN PRODUCT IS IN STOCK -->
+                    {% if product.stock_quantity > 0 %}
+                        <form class="add-to-basket-form" method="post" action="{% url 'add_to_basket' product.id %}">
+                            {% csrf_token %}
+                            <!-- QUANTITY SELECTOR - CONSTRAINED TO AVAILABLE STOCK -->
+                            <label class="add-to-basket-label" for="qty-{{ product.id }}">Qty:</label>
+                            <input
+                                class="add-to-basket-qty"
+                                type="number"
+                                id="qty-{{ product.id }}"
+                                name="quantity"
+                                value="1"
+                                min="1"
+                                max="{{ product.stock_quantity }}"
+                            >
+                            <!-- ADD BUTTON - SUBMITS THE FORM TO ADD THE PRODUCT TO THE BASKET -->
+                            <button class="add-to-basket-btn" type="submit">+ Add</button>
+                        </form>
+                    {% else %}
+                        <!-- OUT OF STOCK INDICATOR - SHOWN WHEN NO STOCK REMAINS -->
+                        <p class="out-of-stock-label">Out of stock</p>
+                    {% endif %}
+
                 </article>
             {% empty %}
                 <div class="producer-empty-state">

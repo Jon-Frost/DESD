@@ -1,0 +1,170 @@
+{% extends 'marketplace/base.html' %}
+
+{% block title %}My Basket - Bristol Food Network{% endblock %}
+
+{% block content %}
+<!-- BASKET PAGE - SHOWS ALL ITEMS IN THE CUSTOMER'S BASKET AND THE CHECKOUT FORM -->
+<div class="basket-page-container">
+    <h2 class="auth-title">My Basket</h2>
+    <p class="auth-subtitle">Review your items and complete your order below.</p>
+
+    <!-- DISPLAY DJANGO MESSAGES (E.G. REMOVAL FEEDBACK) AT THE TOP OF THE PAGE -->
+    {% if messages %}
+        <div class="market-messages">
+            {% for message in messages %}
+                <p class="market-message market-message--{{ message.tags }}">{{ message }}</p>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    {% if basket_items %}
+
+        <!-- BASKET ITEMS TABLE - LISTS ALL PRODUCTS THE CUSTOMER HAS ADDED -->
+        <div class="basket-panel">
+            <table class="basket-table">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Producer</th>
+                        <th>Unit Price</th>
+                        <th>Quantity</th>
+                        <th>Subtotal</th>
+                        <!-- REMOVE COLUMN HEADER FOR THE DELETE BUTTONS -->
+                        <th>Remove</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in basket_items %}
+                        <tr class="basket-row">
+                            <td>{{ item.product.name }}</td>
+                            <td>{{ item.product.producer.business_name }}</td>
+                            <!-- DISPLAY THE PRICE PER UNIT INCLUDING THE UNIT TYPE -->
+                            <td>£{{ item.product.price }} / {{ item.product.unit }}</td>
+                            <td>{{ item.quantity }}</td>
+                            <!-- CALCULATE AND DISPLAY THE LINE TOTAL FOR THIS ITEM -->
+                            <td>£{{ item.get_subtotal }}</td>
+                            <!-- REMOVE FROM BASKET FORM - POSTS TO THE REMOVE VIEW -->
+                            <td>
+                                <form method="post" action="{% url 'remove_from_basket' item.id %}">
+                                    {% csrf_token %}
+                                    <button class="basket-remove-btn" type="submit" title="Remove item">✕</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <!-- GRAND TOTAL ROW AT THE BOTTOM OF THE TABLE -->
+                    <tr class="basket-total-row">
+                        <td colspan="4"><strong>Total</strong></td>
+                        <td colspan="2"><strong>£{{ total }}</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- CHECKOUT FORM - COLLECTS DELIVERY ADDRESS, DATE, AND CARD DETAILS -->
+        <div class="basket-checkout-panel">
+            <h3 class="basket-checkout-title">Checkout Details</h3>
+
+            <form class="auth-form" method="post" action="{% url 'checkout' %}">
+                {% csrf_token %}
+
+                <!-- DELIVERY ADDRESS FIELD -->
+                <div class="auth-field-group">
+                    <label class="auth-label" for="{{ form.delivery_address.id_for_label }}">
+                        {{ form.delivery_address.label }}
+                    </label>
+                    {{ form.delivery_address }}
+                    <!-- SHOW VALIDATION ERRORS IF PRESENT -->
+                    {% if form.delivery_address.errors %}
+                        {% for error in form.delivery_address.errors %}
+                            <p class="field-error-msg">{{ error }}</p>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+
+                <!-- PREFERRED DELIVERY DATE FIELD -->
+                <div class="auth-field-group">
+                    <label class="auth-label" for="{{ form.preferred_delivery_date.id_for_label }}">
+                        {{ form.preferred_delivery_date.label }}
+                    </label>
+                    {{ form.preferred_delivery_date }}
+                    {% if form.preferred_delivery_date.errors %}
+                        {% for error in form.preferred_delivery_date.errors %}
+                            <p class="field-error-msg">{{ error }}</p>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+
+                <!-- CARD HOLDER NAME FIELD -->
+                <div class="auth-field-group">
+                    <label class="auth-label" for="{{ form.card_holder_name.id_for_label }}">
+                        {{ form.card_holder_name.label }}
+                    </label>
+                    {{ form.card_holder_name }}
+                    {% if form.card_holder_name.errors %}
+                        {% for error in form.card_holder_name.errors %}
+                            <p class="field-error-msg">{{ error }}</p>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+
+                <!-- CARD NUMBER FIELD - ONLY LAST 4 DIGITS ARE SAVED TO THE DATABASE -->
+                <div class="auth-field-group">
+                    <label class="auth-label" for="{{ form.card_number.id_for_label }}">
+                        {{ form.card_number.label }}
+                    </label>
+                    {{ form.card_number }}
+                    {% if form.card_number.errors %}
+                        {% for error in form.card_number.errors %}
+                            <p class="field-error-msg">{{ error }}</p>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+
+                <!-- EXPIRY DATE AND CVV SIDE BY SIDE -->
+                <div class="basket-card-row">
+                    <div class="auth-field-group basket-card-half">
+                        <label class="auth-label" for="{{ form.card_expiry.id_for_label }}">
+                            {{ form.card_expiry.label }}
+                        </label>
+                        {{ form.card_expiry }}
+                        {% if form.card_expiry.errors %}
+                            {% for error in form.card_expiry.errors %}
+                                <p class="field-error-msg">{{ error }}</p>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+
+                    <div class="auth-field-group basket-card-half">
+                        <label class="auth-label" for="{{ form.card_cvv.id_for_label }}">
+                            {{ form.card_cvv.label }}
+                        </label>
+                        {{ form.card_cvv }}
+                        {% if form.card_cvv.errors %}
+                            {% for error in form.card_cvv.errors %}
+                                <p class="field-error-msg">{{ error }}</p>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- PLACE ORDER BUTTON - SUBMITS THE CHECKOUT FORM -->
+                <button class="auth-submit-btn basket-place-order-btn" type="submit">
+                    Place Order — £{{ total }}
+                </button>
+
+            </form>
+        </div>
+
+    {% else %}
+        <!-- EMPTY BASKET STATE - SHOWN WHEN THE CUSTOMER HAS NO ITEMS IN THEIR BASKET -->
+        <div class="producer-empty-state basket-empty-state">
+            <p>Your basket is empty.</p>
+            <a href="{% url 'customer_market' %}" class="producer-bio-link">Browse the market</a>
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}

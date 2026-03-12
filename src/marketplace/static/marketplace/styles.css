@@ -513,3 +513,242 @@ body {
 .producer-bio-link:focus {
     color: #1b5e20;
 }
+
+/* --- BASKET ICON IN TOP BAR --- */
+
+/* WRAPPER TO POSITION THE BASKET ICON IN THE CENTRE OF THE TOP BAR */
+.basket-icon-wrapper {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+/* BASKET LINK STYLING - INHERITS NAV STYLES BUT ADDS POSITION CONTEXT */
+.basket-icon-link {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    text-decoration: none;
+    color: #2e7d32;
+    font-weight: bold;
+    font-size: 1rem;
+    padding: 4px 10px;
+    border-radius: 6px;
+    transition: background 0.2s;
+}
+
+/* HOVER EFFECT FOR THE BASKET LINK */
+.basket-icon-link:hover {
+    background: #c8e6c9;
+}
+
+/* BADGE SHOWING THE NUMBER OF ITEMS IN THE BASKET */
+.basket-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #d32f2f;
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: bold;
+    border-radius: 50%;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    margin-left: 2px;
+}
+
+/* MAKE THE TOP BAR RELATIVE SO THE ABSOLUTE BASKET ICON POSITIONS CORRECTLY */
+.top-bar {
+    position: relative;
+}
+
+/* --- ADD TO BASKET FORM ON THE MARKET PAGE --- */
+
+/* WRAPPER FOR THE QUANTITY INPUT AND ADD BUTTON WITHIN A PRODUCT CARD */
+.add-to-basket-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+/* LABEL FOR THE QUANTITY INPUT */
+.add-to-basket-label {
+    font-weight: bold;
+    font-size: 0.9rem;
+    color: #333;
+}
+
+/* QUANTITY NUMBER INPUT INSIDE A PRODUCT CARD */
+.add-to-basket-qty {
+    width: 60px;
+    padding: 5px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+/* GREEN ADD BUTTON ON EACH PRODUCT CARD */
+.add-to-basket-btn {
+    background: #2e7d32;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    padding: 6px 14px;
+    font-size: 0.9rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+/* HOVER EFFECT FOR THE ADD BUTTON */
+.add-to-basket-btn:hover {
+    background: #1b5e20;
+}
+
+/* OUT OF STOCK LABEL SHOWN INSTEAD OF THE ADD FORM */
+.out-of-stock-label {
+    margin-top: 12px;
+    font-size: 0.88rem;
+    color: #c62828;
+    font-weight: bold;
+}
+
+/* --- MARKET PAGE MESSAGES (SUCCESS / ERROR FEEDBACK) --- */
+
+/* WRAPPER FOR THE FEEDBACK MESSAGES AT THE TOP OF THE MARKET PAGE */
+.market-messages {
+    margin-bottom: 16px;
+}
+
+/* BASE STYLE FOR ALL MARKET FEEDBACK MESSAGES */
+.market-message {
+    padding: 10px 14px;
+    border-radius: 5px;
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+}
+
+/* SUCCESS MESSAGE STYLE */
+.market-message--success {
+    background: #e8f5e9;
+    border: 1px solid #a5d6a7;
+    color: #1b5e20;
+}
+
+/* ERROR MESSAGE STYLE */
+.market-message--error {
+    background: #ffebee;
+    border: 1px solid #ef9a9a;
+    color: #b71c1c;
+}
+
+/* --- BASKET PAGE STYLES --- */
+
+/* OUTER CONTAINER FOR THE BASKET PAGE - WIDER THAN THE STANDARD FORM CONTAINER */
+.basket-page-container {
+    max-width: 820px;
+    margin: auto;
+    padding-top: 30px;
+}
+
+/* PANEL WRAPPING THE BASKET ITEMS TABLE */
+.basket-panel {
+    background: #fff;
+    border: 1px solid #c8e6c9;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 24px;
+    overflow-x: auto;
+}
+
+/* TABLE DISPLAYING BASKET ITEMS */
+.basket-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+}
+
+/* TABLE HEADER CELLS */
+.basket-table th {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 2px solid #c8e6c9;
+    color: #2e7d32;
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+/* TABLE DATA CELLS */
+.basket-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #eee;
+    vertical-align: middle;
+}
+
+/* HIGHLIGHT THE TOTAL ROW AT THE BOTTOM OF THE TABLE */
+.basket-total-row td {
+    border-top: 2px solid #c8e6c9;
+    border-bottom: none;
+    font-size: 1rem;
+    padding-top: 12px;
+}
+
+/* REMOVE BUTTON INSIDE EACH BASKET ROW */
+.basket-remove-btn {
+    background: #fff0f0;
+    border: 1px solid #d68e8e;
+    color: #8f1f1f;
+    border-radius: 4px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: bold;
+    transition: background 0.2s;
+}
+
+/* HOVER EFFECT FOR THE REMOVE BUTTON */
+.basket-remove-btn:hover {
+    background: #ffe5e5;
+    border-color: #c77878;
+}
+
+/* PANEL WRAPPING THE CHECKOUT FORM BELOW THE BASKET TABLE */
+.basket-checkout-panel {
+    background: #fff;
+    border: 1px solid #c8e6c9;
+    border-radius: 8px;
+    padding: 24px;
+}
+
+/* HEADING INSIDE THE CHECKOUT PANEL */
+.basket-checkout-title {
+    color: #2e7d32;
+    margin-top: 0;
+    margin-bottom: 20px;
+}
+
+/* ROW HOLDING THE EXPIRY AND CVV FIELDS SIDE BY SIDE */
+.basket-card-row {
+    display: flex;
+    gap: 16px;
+}
+
+/* EACH HALF-WIDTH FIELD IN THE CARD ROW */
+.basket-card-half {
+    flex: 1;
+}
+
+/* PLACE ORDER SUBMIT BUTTON */
+.basket-place-order-btn {
+    margin-top: 16px;
+    font-size: 1.05rem;
+}
+
+/* EMPTY BASKET STATE */
+.basket-empty-state {
+    margin-top: 20px;
+}

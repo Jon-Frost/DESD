@@ -16,4 +16,9 @@ urlpatterns = [
     path('products/<int:product_id>/', views.producer_product_actions, name='producer_product_actions'),
     path('products/<int:product_id>/edit/', views.edit_product, name='edit_product'),
     path('products/<int:product_id>/delete/', views.delete_product, name='delete_product'),
+    path('basket/add/<int:product_id>/', views.add_to_basket, name='add_to_basket'),
+    path('basket/', views.view_basket, name='view_basket'),
+    path('basket/remove/<int:item_id>/', views.remove_from_basket, name='remove_from_basket'),
+    path('basket/checkout/', views.checkout, name='checkout'),
+    path('orders/<int:order_id>/confirmation/', views.order_confirmation, name='order_confirmation'),
 ]

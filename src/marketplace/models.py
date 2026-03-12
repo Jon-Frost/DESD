@@ -48,3 +48,73 @@ class Product(models.Model):
 
     def __str__(self):
         return f"{self.name} - {self.producer.business_name}"
+
+
+# BASKET ITEM MODEL - REPRESENTS A SINGLE PRODUCT SITTING IN A CUSTOMER'S BASKET BEFORE CHECKOUT
+class BasketItem(models.Model):
+    # LINK TO THE CUSTOMER WHO OWNS THIS BASKET ENTRY
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='basket_items')
+    # LINK TO THE PRODUCT BEING HELD IN THE BASKET
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='basket_items')
+    # HOW MANY UNITS OF THE PRODUCT THE CUSTOMER WANTS
+    quantity = models.PositiveIntegerField(default=1)
+    # TIMESTAMP FOR WHEN THE ITEM WAS ADDED
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # PREVENT DUPLICATE ENTRIES - ONE ROW PER CUSTOMER+PRODUCT PAIR
+        unique_together = ('customer', 'product')
+
+    def get_subtotal(self):
+        # CALCULATE THE LINE TOTAL FOR THIS BASKET ITEM
+        return self.product.price * self.quantity
+
+    def __str__(self):
+        return f"{self.quantity}x {self.product.name} in {self.customer.name}'s basket"
+
+
+# CUSTOMER ORDER MODEL - REPRESENTS A CONFIRMED ORDER STORED IN THE DATABASE
+class CustomerOrder(models.Model):
+    # LINK TO THE CUSTOMER WHO PLACED THE ORDER
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='orders')
+    # TIMESTAMP AUTOMATICALLY SET WHEN THE ORDER IS CREATED
+    created_at = models.DateTimeField(auto_now_add=True)
+    # DELIVERY DETAILS ENTERED BY THE CUSTOMER AT CHECKOUT
+    delivery_address = models.CharField(max_length=300)
+    preferred_delivery_date = models.DateField()
+    # CARD HOLDER NAME FOR REFERENCE
+    card_holder_name = models.CharField(max_length=100)
+    # ONLY THE LAST 4 DIGITS ARE STORED - FULL CARD NUMBERS ARE NEVER PERSISTED
+    card_number_last4 = models.CharField(max_length=4)
+    # TOTAL VALUE OF THE ORDER CALCULATED AT CHECKOUT
+    total_price = models.DecimalField(max_digits=10, decimal_places=2)
+
+    # ORDER STATUS CHOICES
+    STATUS_CHOICES = [
+        ('PENDING', 'Pending'),
+        ('CONFIRMED', 'Confirmed'),
+        ('DELIVERED', 'Delivered'),
+    ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
+
+    def __str__(self):
+        return f"Order #{self.id} by {self.customer.name} on {self.created_at.date()}"
+
+
+# ORDER ITEM MODEL - REPRESENTS A SINGLE PRODUCT LINE WITHIN A CONFIRMED ORDER
+class OrderItem(models.Model):
+    # LINK BACK TO THE PARENT ORDER
+    order = models.ForeignKey(CustomerOrder, on_delete=models.CASCADE, related_name='items')
+    # LINK TO THE PRODUCT THAT WAS ORDERED
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='order_items')
+    # QUANTITY ORDERED
+    quantity = models.PositiveIntegerField()
+    # SNAPSHOT THE PRICE AT TIME OF PURCHASE SO PRICE CHANGES DON'T AFFECT HISTORICAL ORDERS
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+
+    def get_subtotal(self):
+        # CALCULATE THE SUBTOTAL FOR THIS ORDER LINE
+        return self.unit_price * self.quantity
+
+    def __str__(self):
+        return f"{self.quantity}x {self.product.name} (Order #{self.order.id})"
