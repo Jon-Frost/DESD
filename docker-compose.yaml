@@ -32,5 +32,12 @@ services:
     depends_on: # WILL REQUIRE THE DB TO BE UP BEFORE THE WEB SERVICE STARTS
       - db
 
+  adminer:
+    image: adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+
 volumes:
   postgres_data:
