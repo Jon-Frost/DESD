@@ -27,6 +27,48 @@ body {
     text-decoration: none;
     color: #333;
 }
+
+/* SHARED NAVIGATION LINK STYLE (TOP BAR + SIDEBAR) */
+.nav-link {
+    color: #2e7d32;
+    font-weight: bold;
+    text-decoration: none;
+}
+
+.nav-link:hover,
+.nav-link:focus {
+    color: #1b5e20;
+    text-decoration: underline;
+}
+
+/* TOP BAR NAV LAYOUT */
+.main-nav {
+    display: inline-flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.nav-inline-form {
+    display: inline;
+}
+
+/* LOGOUT BUTTON STYLED TO MATCH NAV LINKS */
+.nav-link-btn {
+    background: none;
+    border: none;
+    color: #2e7d32;
+    cursor: pointer;
+    text-decoration: none;
+    padding: 0;
+    font: inherit;
+    font-weight: bold;
+}
+
+.nav-link-btn:hover,
+.nav-link-btn:focus {
+    color: #1b5e20;
+    text-decoration: underline;
+}
 /*Link effects*/
 .container {
     display: flex;
@@ -646,6 +688,115 @@ body {
     color: #b71c1c;
 }
 
+/* --- MARKET FILTER STYLES --- */
+
+/* FILTER PANEL ABOVE PRODUCT LIST ON MARKET PAGE */
+.market-filter-panel {
+    margin-bottom: 16px;
+}
+
+/* FILTER FORM LAYOUT - RESPONSIVE GRID */
+.market-filter-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    align-items: end;
+}
+
+/* WRAPS EACH FILTER CONTROL */
+.market-filter-field {
+    min-width: 0;
+}
+
+/* FULL-WIDTH FILTER FIELD FOR ALLERGEN CHECKBOX GRID */
+.market-filter-field--full {
+    grid-column: 1 / -1;
+}
+
+/* SINGLE-PICK ALLERGEN DROPDOWN USED IN PRODUCER AND CUSTOMER VIEWS */
+.allergen-picker-select {
+    max-width: 360px;
+}
+
+/* CONTAINER FOR THE SELECTED ALLERGEN TAGS */
+.allergen-selected-list {
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* VISUAL TAG FOR EACH SELECTED ALLERGEN */
+.allergen-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #e8f5e9;
+    border: 1px solid #a5d6a7;
+    color: #1b5e20;
+    border-radius: 14px;
+    padding: 4px 10px;
+    font-size: 0.88rem;
+}
+
+/* REMOVE BUTTON INSIDE EACH ALLERGEN TAG */
+.allergen-chip-remove {
+    border: none;
+    background: transparent;
+    color: #1b5e20;
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    padding: 0;
+}
+
+.allergen-chip-remove:hover,
+.allergen-chip-remove:focus {
+    color: #0d3a11;
+}
+
+/* ALLERGEN CHECKBOX GRID IN CUSTOMER FILTER PANEL */
+.market-allergen-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 8px 12px;
+    margin-top: 6px;
+}
+
+/* SINGLE ALLERGEN OPTION ROW */
+.market-allergen-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: normal;
+}
+
+.market-allergen-option input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+}
+
+/* ACTION BUTTON GROUP FOR APPLY/CLEAR */
+.market-filter-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* CLEAR FILTERS LINK STYLE */
+.market-filter-reset {
+    display: inline-block;
+    text-decoration: none;
+    color: #2e7d32;
+    font-weight: bold;
+}
+
+.market-filter-reset:hover,
+.market-filter-reset:focus {
+    text-decoration: underline;
+    color: #1b5e20;
+}
+
 /* --- BASKET PAGE STYLES --- */
 
 /* OUTER CONTAINER FOR THE BASKET PAGE - WIDER THAN THE STANDARD FORM CONTAINER */
@@ -751,4 +902,42 @@ body {
 /* EMPTY BASKET STATE */
 .basket-empty-state {
     margin-top: 20px;
+}
+
+/* --- PRODUCER ALLERGEN CHECKBOX LIST STYLES --- */
+
+/* DJANGO CHECKBOXSELECTMULTIPLE CONTAINER FOR PRODUCER PRODUCT FORM */
+.producer-allergen-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 8px 12px;
+    margin-top: 6px;
+}
+
+/* OPTION ROW STYLE FOR EACH PRODUCER ALLERGEN CHECKBOX */
+.producer-allergen-list label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: normal;
+}
+
+.producer-allergen-list input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+    appearance: auto;
+    -webkit-appearance: checkbox;
+    display: inline-block;
+    opacity: 1;
+    visibility: visible;
+}
+
+/* GLOBAL CHECKBOX INPUT OVERRIDE INSIDE AUTH FORMS */
+.auth-form input[type="checkbox"] {
+    width: auto;
+}
+
+/* PRODUCER ALLERGEN MULTI-SELECT DROPDOWN */
+.producer-allergen-select {
+    min-height: 180px;
 }

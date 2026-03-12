@@ -35,7 +35,8 @@ class Product(models.Model):
     unit = models.CharField(max_length=50, help_text="e.g., per kg, per bunch")
     stock_quantity = models.PositiveIntegerField(default=0)
     is_organic = models.BooleanField(default=False)
-    allergen_information = models.TextField(blank=True, null=True)
+    # STRUCTURED ALLERGEN LIST - STORES ZERO OR MORE OF THE UK MAJOR ALLERGEN KEYS
+    allergens = models.JSONField(default=list, blank=True)
     
     CATEGORY_CHOICES = [
         ('VEG', 'Vegetables'),
@@ -44,10 +45,34 @@ class Product(models.Model):
         ('DAIRY', 'Dairy'),
         ('BAKERY', 'Bakery'),
     ]
+
+    # UK MAJOR ALLERGEN CHOICES USED FOR PRODUCER CHECKBOX INPUTS AND CUSTOMER FILTERING
+    ALLERGEN_CHOICES = [
+        ('CELERY', 'Celery'),
+        ('GLUTEN', 'Cereals containing gluten'),
+        ('CRUSTACEANS', 'Crustaceans'),
+        ('EGGS', 'Eggs'),
+        ('FISH', 'Fish'),
+        ('LUPIN', 'Lupin'),
+        ('MILK', 'Milk'),
+        ('MOLLUSCS', 'Molluscs'),
+        ('NUTS', 'Nuts'),
+        ('MUSTARD', 'Mustard'),
+        ('PEANUTS', 'Peanuts'),
+        ('SESAME', 'Sesame'),
+        ('SOYBEANS', 'Soybeans'),
+        ('SULPHITES', 'Sulphur dioxide and sulphites'),
+    ]
+
     category = models.CharField(max_length=10, choices=CATEGORY_CHOICES)
 
     def __str__(self):
         return f"{self.name} - {self.producer.business_name}"
+
+    def get_allergen_labels(self):
+        # MAP STORED ALLERGEN KEYS TO DISPLAY LABELS FOR TEMPLATE OUTPUT
+        label_map = dict(self.ALLERGEN_CHOICES)
+        return [label_map[key] for key in self.allergens if key in label_map]
 
 
 # BASKET ITEM MODEL - REPRESENTS A SINGLE PRODUCT SITTING IN A CUSTOMER'S BASKET BEFORE CHECKOUT

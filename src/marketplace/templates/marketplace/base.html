@@ -18,7 +18,6 @@
             {% if user.is_authenticated %}
                 {% if is_customer %}
                     <a href="{% url 'view_basket' %}" class="basket-icon-link" title="View Basket">
-                        🛒
                         <!-- DISPLAY THE BASKET COUNT BADGE IF THERE ARE ITEMS -->
                         {% if basket_count > 0 %}
                             <span class="basket-count-badge">{{ basket_count }}</span>
@@ -29,20 +28,20 @@
             {% endif %}
         </div>
 
-        <nav>
-            <a href="{% url 'home' %}">Home</a>
+        <nav class="main-nav">
+            <a href="{% url 'home' %}" class="nav-link">Home</a>
             {% if user.is_authenticated %}
                 <span>Logged in as: <strong>{{ user.username }}</strong></span>
         
-                <form action="{% url 'logout' %}" method="post" style="display: inline;">
+                <form action="{% url 'logout' %}" method="post" class="nav-inline-form">
                     {% csrf_token %}
-                    <button type="submit" style="background: none; border: none; color: #2e7d32; cursor: pointer; text-decoration: underline; padding: 0; font: inherit;">
+                    <button type="submit" class="nav-link-btn">
                         Logout
                     </button>
                 </form>
             {% else %}
-                <a href="{% url 'signup_choice' %}">Sign Up</a>
-                <a href="{% url 'login' %}">Login</a>
+                <a href="{% url 'signup_choice' %}" class="nav-link">Sign Up</a>
+                <a href="{% url 'login' %}" class="nav-link">Login</a>
             {% endif %}
         </nav>
     </header>
@@ -52,18 +51,18 @@
         <aside class="sidebar">
             <h3>Menu</h3>
             <ul>
-                <li><a href="{% url 'home' %}">Home</a></li>
+                <li><a href="{% url 'home' %}" class="nav-link">Home</a></li>
                 {% if user.is_authenticated and is_producer %}
-                    <li><a href="{% url 'add_product' %}" style="font-weight: bold; color: #2e7d32;">+ Add Product</a></li>
-                    <li><a href="{% url 'producer_bio' %}" style="font-weight: bold; color: #2e7d32;">My Bio</a></li>
+                    <li><a href="{% url 'add_product' %}" class="nav-link">+ Add Product</a></li>
+                    <li><a href="{% url 'producer_bio' %}" class="nav-link">My Bio</a></li>
                 {% endif %}
                 {% if user.is_authenticated and is_customer %}
-                    <li><a href="{% url 'customer_market' %}" style="font-weight: bold; color: #2e7d32;">Market</a></li>
+                    <li><a href="{% url 'customer_market' %}" class="nav-link">Market</a></li>
                     <!-- BASKET SIDEBAR LINK - LETS CUSTOMERS NAVIGATE TO THEIR BASKET FROM ANY PAGE -->
-                    <li><a href="{% url 'view_basket' %}" style="font-weight: bold; color: #2e7d32;">🛒 Basket{% if basket_count > 0 %} ({{ basket_count }}){% endif %}</a></li>
+                    <li><a href="{% url 'view_basket' %}" class="nav-link">Basket{% if basket_count > 0 %} ({{ basket_count }}){% endif %}</a></li>
                 {% endif %}
-                <li><a href="#">Producers</a></li>
-                <li><a href="#">Products</a></li>
+                <li><a href="#" class="nav-link">Producers</a></li>
+                <li><a href="#" class="nav-link">Products</a></li>
             </ul>
         </aside>
 
