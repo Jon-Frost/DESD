@@ -21,4 +21,11 @@ urlpatterns = [
     path('basket/remove/<int:item_id>/', views.remove_from_basket, name='remove_from_basket'),
     path('basket/checkout/', views.checkout, name='checkout'),
     path('orders/<int:order_id>/confirmation/', views.order_confirmation, name='order_confirmation'),
+    path('orders/', views.order_history, name='order_history'),
+    path('orders/<int:order_id>/reorder/', views.reorder, name='reorder'),
+    path('orders/<int:order_id>/receipt/', views.download_receipt, name='download_receipt'),
+    path('producer/orders/', views.producer_orders, name='producer_orders'),
+    path('producer/orders/<int:order_id>/update/', views.update_order_status, name='update_order_status'),
+    path('producer/settlements/', views.payment_settlements, name='payment_settlements'),
+    path('producer/settlements/<str:week_start_str>/pdf/', views.download_settlement_pdf, name='download_settlement_pdf'),
 ]

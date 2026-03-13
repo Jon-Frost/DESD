@@ -118,6 +118,7 @@ class CustomerOrder(models.Model):
     STATUS_CHOICES = [
         ('PENDING', 'Pending'),
         ('CONFIRMED', 'Confirmed'),
+        ('READY', 'Ready for Delivery'),
         ('DELIVERED', 'Delivered'),
     ]
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
