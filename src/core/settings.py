@@ -66,8 +66,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 # CUSTOM CONTEXT PROCESSOR - INJECTS BASKET ITEM COUNT INTO EVERY TEMPLATE
-                'marketplace.context_processors.basket_count',
-                
+                'marketplace.global_context.basket_count',
             ],
         },
     },
