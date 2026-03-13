@@ -1,5 +1,6 @@
-{% load static %}
 
+{% load static %}
+ 
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,10 +9,10 @@
     <link rel="stylesheet" href="{% static 'marketplace/styles.css' %}">
 </head>
 <body>
-
+ 
     <header class="top-bar">
         <div class="brand-name">Bristol Regional Food Network</div>
-
+ 
         <!-- BASKET ICON - DISPLAYED IN THE TOP BAR FOR LOGGED-IN CUSTOMERS -->
         <!-- SHOWS THE NUMBER OF DISTINCT PRODUCT LINES CURRENTLY IN THE BASKET -->
         <div class="basket-icon-wrapper">
@@ -27,7 +28,7 @@
                 {% endif %}
             {% endif %}
         </div>
-
+ 
         <nav class="main-nav">
             <a href="{% url 'home' %}" class="nav-link">Home</a>
             {% if user.is_authenticated %}
@@ -56,6 +57,7 @@
                     <li><a href="{% url 'add_product' %}" class="nav-link">+ Add Product</a></li>
                     <li><a href="{% url 'producer_bio' %}" class="nav-link">My Bio</a></li>
                     <li><a href="{% url 'producer_orders' %}" class="nav-link">Incoming Orders</a></li>
+                    <li><a href="{% url 'payment_settlements' %}" class="nav-link">Settlements</a></li>
                 {% endif %}
                 {% if user.is_authenticated and is_customer %}
                     <li><a href="{% url 'customer_market' %}" class="nav-link">Market</a></li>
@@ -67,12 +69,12 @@
                 <li><a href="#" class="nav-link">Products</a></li>
             </ul>
         </aside>
-
+ 
         <main class="content">
             {% block content %}
             {% endblock %}
         </main>
     </div>
-
+ 
 </body>
 </html>

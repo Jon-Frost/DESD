@@ -26,4 +26,6 @@ urlpatterns = [
     path('orders/<int:order_id>/receipt/', views.download_receipt, name='download_receipt'),
     path('producer/orders/', views.producer_orders, name='producer_orders'),
     path('producer/orders/<int:order_id>/update/', views.update_order_status, name='update_order_status'),
+    path('producer/settlements/', views.payment_settlements, name='payment_settlements'),
+    path('producer/settlements/<str:week_start_str>/pdf/', views.download_settlement_pdf, name='download_settlement_pdf'),
 ]

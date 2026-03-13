@@ -8,6 +8,7 @@ from .forms import CustomerSignupForm, ProducerSignupForm, ProductForm, Producer
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from django.http import HttpResponse
+from datetime import date, timedelta
 
 def home(request):
     return render(request, 'marketplace/home.html')
@@ -615,3 +616,167 @@ def update_order_status(request, order_id):
             messages.success(request, f'Order #{order.id} status updated to {order.get_status_display()}.')
 
     return redirect('producer_orders')
+
+
+@login_required
+def payment_settlements(request):
+    producer_profile = _get_logged_in_producer(request.user)
+    if producer_profile is None:
+        return redirect('home')
+
+    # GET ALL DELIVERED ORDERS FOR THIS PRODUCER
+    order_items = OrderItem.objects.filter(
+        product__producer=producer_profile,
+        order__status='DELIVERED'
+    ).select_related('order', 'product').order_by('-order__created_at')
+
+    # GROUP BY WEEK
+    weeks = {}
+    for item in order_items:
+        # GET THE MONDAY OF THE WEEK THIS ORDER WAS PLACED
+        order_date = item.order.created_at.date()
+        week_start = order_date - timedelta(days=order_date.weekday())
+        week_end = week_start + timedelta(days=6)
+        week_key = week_start
+
+        if week_key not in weeks:
+            weeks[week_key] = {
+                'week_start': week_start,
+                'week_end': week_end,
+                'items': [],
+                'gross_total': 0,
+                'commission': 0,
+                'producer_payment': 0,
+            }
+
+        subtotal = item.get_subtotal()
+        commission = round(subtotal * Decimal('0.05'), 2)
+        producer_payment = round(subtotal * Decimal('0.95'), 2)
+
+        weeks[week_key]['items'].append({
+            'item': item,
+            'subtotal': subtotal,
+            'commission': commission,
+            'producer_payment': producer_payment,
+        })
+        weeks[week_key]['gross_total'] += subtotal
+        weeks[week_key]['commission'] += commission
+        weeks[week_key]['producer_payment'] += producer_payment
+
+    # SORT WEEKS MOST RECENT FIRST
+    sorted_weeks = sorted(weeks.values(), key=lambda w: w['week_start'], reverse=True)
+
+    # CALCULATE YEAR TO DATE TOTALS
+    ytd_gross = sum(w['gross_total'] for w in sorted_weeks)
+    ytd_commission = sum(w['commission'] for w in sorted_weeks)
+    ytd_producer_payment = sum(w['producer_payment'] for w in sorted_weeks)
+
+    return render(
+        request,
+        'marketplace/payment_settlements.html',
+        {
+            'weeks': sorted_weeks,
+            'ytd_gross': ytd_gross,
+            'ytd_commission': ytd_commission,
+            'ytd_producer_payment': ytd_producer_payment,
+        }
+    )
+
+
+@login_required
+def download_settlement_pdf(request, week_start_str):
+    producer_profile = _get_logged_in_producer(request.user)
+    if producer_profile is None:
+        return redirect('home')
+
+    # PARSE THE WEEK START DATE FROM THE URL
+    try:
+        week_start = date.fromisoformat(week_start_str)
+    except ValueError:
+        return redirect('payment_settlements')
+
+    week_end = week_start + timedelta(days=6)
+
+    # GET ALL DELIVERED ORDER ITEMS FOR THIS PRODUCER IN THIS WEEK
+    order_items = OrderItem.objects.filter(
+        product__producer=producer_profile,
+        order__status='DELIVERED',
+        order__created_at__date__gte=week_start,
+        order__created_at__date__lte=week_end,
+    ).select_related('order__customer', 'product')
+
+    # BUILD PDF RESPONSE
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="settlement_{week_start_str}.pdf"'
+
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+    y = height - 50
+
+    # HEADER
+    p.setFont("Helvetica-Bold", 18)
+    p.drawString(50, y, "Bristol Regional Food Network")
+    y -= 25
+    p.setFont("Helvetica", 12)
+    p.drawString(50, y, "Weekly Payment Settlement Report")
+    y -= 18
+    p.drawString(50, y, f"Producer: {producer_profile.business_name}")
+    y -= 18
+    p.drawString(50, y, f"Week: {week_start.strftime('%d %b %Y')} - {week_end.strftime('%d %b %Y')}")
+    y -= 30
+
+    # TABLE HEADER
+    p.setFont("Helvetica-Bold", 10)
+    p.drawString(50, y, "Order #")
+    p.drawString(110, y, "Date")
+    p.drawString(190, y, "Product")
+    p.drawString(340, y, "Qty")
+    p.drawString(380, y, "Subtotal")
+    p.drawString(450, y, "Commission")
+    p.drawString(530, y, "You Receive")
+    y -= 5
+    p.line(50, y, 580, y)
+    y -= 18
+
+    # ROWS
+    gross_total = Decimal('0.00')
+    total_commission = Decimal('0.00')
+    total_producer = Decimal('0.00')
+
+    p.setFont("Helvetica", 9)
+    for item in order_items:
+        subtotal = item.get_subtotal()
+        commission = round(subtotal * Decimal('0.05'), 2)
+        producer_payment = round(subtotal * Decimal('0.95'), 2)
+
+        gross_total += subtotal
+        total_commission += commission
+        total_producer += producer_payment
+
+        p.drawString(50, y, f"#{item.order.id}")
+        p.drawString(110, y, item.order.created_at.strftime('%d %b'))
+        p.drawString(190, y, item.product.name[:20])
+        p.drawString(340, y, str(item.quantity))
+        p.drawString(380, y, f"£{subtotal}")
+        p.drawString(450, y, f"£{commission}")
+        p.drawString(530, y, f"£{producer_payment}")
+        y -= 16
+
+        if y < 80:
+            p.showPage()
+            y = height - 50
+
+    # TOTALS
+    y -= 10
+    p.line(50, y, 580, y)
+    y -= 20
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(50, y, f"Gross Total: £{gross_total}")
+    y -= 18
+    p.drawString(50, y, f"Network Commission (5%): £{total_commission}")
+    y -= 18
+    p.drawString(50, y, f"Your Payment (95%): £{total_producer}")
+
+    p.showPage()
+    p.save()
+    return response
