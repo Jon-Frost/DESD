@@ -55,11 +55,13 @@
                 {% if user.is_authenticated and is_producer %}
                     <li><a href="{% url 'add_product' %}" class="nav-link">+ Add Product</a></li>
                     <li><a href="{% url 'producer_bio' %}" class="nav-link">My Bio</a></li>
+                    <li><a href="{% url 'producer_orders' %}" class="nav-link">Incoming Orders</a></li>
                 {% endif %}
                 {% if user.is_authenticated and is_customer %}
                     <li><a href="{% url 'customer_market' %}" class="nav-link">Market</a></li>
                     <!-- BASKET SIDEBAR LINK - LETS CUSTOMERS NAVIGATE TO THEIR BASKET FROM ANY PAGE -->
                     <li><a href="{% url 'view_basket' %}" class="nav-link">Basket{% if basket_count > 0 %} ({{ basket_count }}){% endif %}</a></li>
+                    <li><a href="{% url 'order_history' %}" class="nav-link">My Orders</a></li>
                 {% endif %}
                 <li><a href="#" class="nav-link">Producers</a></li>
                 <li><a href="#" class="nav-link">Products</a></li>

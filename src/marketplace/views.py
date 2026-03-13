@@ -5,6 +5,9 @@ from decimal import Decimal, InvalidOperation
 from django.db.models import Q
 from .models import Producer, Customer, Product, BasketItem, CustomerOrder, OrderItem
 from .forms import CustomerSignupForm, ProducerSignupForm, ProductForm, ProducerBioForm, CheckoutForm
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from django.http import HttpResponse
 
 def home(request):
     return render(request, 'marketplace/home.html')
@@ -432,3 +435,183 @@ def order_confirmation(request, order_id):
             'order_items': order_items,
         }
     )
+
+# order history
+@login_required
+def order_history(request):
+    customer_profile = _get_logged_in_customer(request.user)
+    if customer_profile is None:
+        return redirect('home')
+
+    orders = CustomerOrder.objects.filter(
+        customer=customer_profile
+    ).prefetch_related('items__product__producer').order_by('-created_at')
+
+    return render(
+        request,
+        'marketplace/order_history.html',
+        {'orders': orders}
+    )
+
+
+@login_required
+def reorder(request, order_id):
+    customer_profile = _get_logged_in_customer(request.user)
+    if customer_profile is None:
+        return redirect('home')
+
+    order = get_object_or_404(CustomerOrder, id=order_id, customer=customer_profile)
+
+    unavailable = []
+    for item in order.items.select_related('product'):
+        product = item.product
+        if product.stock_quantity >= item.quantity:
+            basket_item, created = BasketItem.objects.get_or_create(
+                customer=customer_profile,
+                product=product,
+                defaults={'quantity': 0}
+            )
+            basket_item.quantity += item.quantity
+            basket_item.save()
+        else:
+            unavailable.append(product.name)
+
+    if unavailable:
+        messages.warning(
+            request,
+            f'Some items were unavailable and skipped: {", ".join(unavailable)}'
+        )
+    else:
+        messages.success(request, 'All items added to your basket.')
+
+    return redirect('view_basket')
+
+@login_required
+def download_receipt(request, order_id):
+    customer_profile = _get_logged_in_customer(request.user)
+    if customer_profile is None:
+        return redirect('home')
+
+    order = get_object_or_404(CustomerOrder, id=order_id, customer=customer_profile)
+    order_items = order.items.select_related('product').all()
+
+    # CREATE PDF RESPONSE
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="receipt_order_{order.id}.pdf"'
+
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+    y = height - 50
+
+    # HEADER
+    p.setFont("Helvetica-Bold", 18)
+    p.drawString(50, y, "Bristol Regional Food Network")
+    y -= 25
+    p.setFont("Helvetica", 12)
+    p.drawString(50, y, "Order Receipt")
+    y -= 30
+
+    # ORDER DETAILS
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(50, y, f"Order #: {order.id}")
+    y -= 18
+    p.setFont("Helvetica", 11)
+    p.drawString(50, y, f"Date Placed: {order.created_at.strftime('%d %B %Y')}")
+    y -= 18
+    p.drawString(50, y, f"Delivery Date: {order.preferred_delivery_date.strftime('%d %B %Y')}")
+    y -= 18
+    p.drawString(50, y, f"Delivery Address: {order.delivery_address}")
+    y -= 18
+    p.drawString(50, y, f"Status: {order.get_status_display()}")
+    y -= 18
+    p.drawString(50, y, f"Card: **** **** **** {order.card_number_last4}")
+    y -= 30
+
+    # ITEMS TABLE HEADER
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(50, y, "Product")
+    p.drawString(250, y, "Producer")
+    p.drawString(400, y, "Qty")
+    p.drawString(450, y, "Unit Price")
+    p.drawString(530, y, "Subtotal")
+    y -= 5
+    p.line(50, y, 580, y)
+    y -= 18
+
+    # ITEMS
+    p.setFont("Helvetica", 10)
+    for item in order_items:
+        p.drawString(50, y, item.product.name[:25])
+        p.drawString(250, y, item.product.producer.business_name[:20])
+        p.drawString(400, y, str(item.quantity))
+        p.drawString(450, y, f"£{item.unit_price}")
+        p.drawString(530, y, f"£{item.get_subtotal()}")
+        y -= 18
+
+    # TOTAL
+    y -= 10
+    p.line(50, y, 580, y)
+    y -= 20
+    p.setFont("Helvetica-Bold", 12)
+    p.drawString(450, y, f"Total: £{order.total_price}")
+
+    p.showPage()
+    p.save()
+    return response
+
+
+@login_required
+def producer_orders(request):
+    producer_profile = _get_logged_in_producer(request.user)
+    if producer_profile is None:
+        return redirect('home')
+
+    # GET ALL ORDER ITEMS FOR THIS PRODUCER'S PRODUCTS
+    order_items = OrderItem.objects.filter(
+        product__producer=producer_profile
+    ).select_related(
+        'order__customer', 'product'
+    ).order_by('order__preferred_delivery_date')
+
+    # GROUP ORDER ITEMS BY ORDER
+    orders_dict = {}
+    for item in order_items:
+        order = item.order
+        if order.id not in orders_dict:
+            orders_dict[order.id] = {
+                'order': order,
+                'items': []
+            }
+        orders_dict[order.id]['items'].append(item)
+
+    orders = list(orders_dict.values())
+
+    return render(
+        request,
+        'marketplace/producer_orders.html',
+        {'orders': orders}
+    )
+@login_required
+def update_order_status(request, order_id):
+    producer_profile = _get_logged_in_producer(request.user)
+    if producer_profile is None:
+        return redirect('home')
+
+    # VERIFY THIS ORDER CONTAINS THIS PRODUCER'S PRODUCTS
+    order = get_object_or_404(CustomerOrder, id=order_id)
+    is_producers_order = order.items.filter(
+        product__producer=producer_profile
+    ).exists()
+
+    if not is_producers_order:
+        return redirect('producer_orders')
+
+    if request.method == 'POST':
+        new_status = request.POST.get('status')
+        valid_statuses = [choice[0] for choice in CustomerOrder.STATUS_CHOICES]
+        if new_status in valid_statuses:
+            order.status = new_status
+            order.save()
+            messages.success(request, f'Order #{order.id} status updated to {order.get_status_display()}.')
+
+    return redirect('producer_orders')
