@@ -32,10 +32,10 @@ docker compose exec web python src/manage.py createsuperuser
 
 access from - http://localhost:8000/admin
 
-
 ### Migrate Commands
 
 docker compose exec web python src/manage.py makemigrations
 docker compose exec web python src/manage.py migrate
+
 
 ---

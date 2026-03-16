@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from decimal import Decimal, InvalidOperation
 from django.db.models import Q
-from .models import Producer, Customer, Product, BasketItem, CustomerOrder, OrderItem, RecurringOrder, RecurringOrderItem, Notification
+from .models import Producer, Customer, Product, BasketItem, CustomerOrder, OrderItem, RecurringOrder, RecurringOrderItem, Notification, ProductReview
 from .forms import CustomerSignupForm, ProducerSignupForm, ProductForm, ProducerBioForm, CheckoutForm
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
@@ -463,10 +463,115 @@ def order_history(request):
         customer=customer_profile
     ).prefetch_related('items__product__producer').order_by('-created_at')
 
+    # ATTACH REVIEW OBJECTS TO EACH ORDER ITEM FOR TEMPLATE RENDERING
+    order_item_ids = [item.id for order in orders for item in order.items.all()]
+    reviews_by_order_item_id = {
+        review.order_item_id: review
+        for review in ProductReview.objects.filter(order_item_id__in=order_item_ids)
+    }
+
+    for order in orders:
+        for item in order.items.all():
+            item.customer_review = reviews_by_order_item_id.get(item.id)
+
     return render(
         request,
         'marketplace/order_history.html',
         {'orders': orders}
+    )
+
+
+# SUBMIT PRODUCT REVIEW VIEW - ALLOWS REVIEW ONLY FOR PRODUCTS THE CUSTOMER HAS PURCHASED
+@login_required
+def submit_product_review(request, order_item_id):
+    customer_profile = _get_logged_in_customer(request.user)
+    if customer_profile is None:
+        return redirect('home')
+
+    # ENSURE THE TARGET ORDER ITEM BELONGS TO THE LOGGED-IN CUSTOMER'S ORDER HISTORY
+    order_item = get_object_or_404(
+        OrderItem.objects.select_related('order', 'product'),
+        id=order_item_id,
+        order__customer=customer_profile,
+    )
+
+    if request.method == 'POST':
+        # READ AND VALIDATE RATING INPUT
+        rating_raw = request.POST.get('rating', '').strip()
+        comment = request.POST.get('comment', '').strip()
+
+        try:
+            rating = int(rating_raw)
+        except (TypeError, ValueError):
+            rating = None
+
+        if rating not in {1, 2, 3, 4, 5}:
+            messages.error(request, 'Please select a valid rating between 1 and 5.')
+            return redirect('order_history')
+
+        # CREATE OR UPDATE A REVIEW FOR THIS PURCHASED ORDER ITEM
+        review, created = ProductReview.objects.get_or_create(
+            order_item=order_item,
+            defaults={
+                'customer': customer_profile,
+                'product': order_item.product,
+                'rating': rating,
+                'comment': comment,
+            },
+        )
+
+        if review.customer_id != customer_profile.id:
+            messages.error(request, 'You are not allowed to update this review.')
+            return redirect('order_history')
+
+        # SAVE UPDATED REVIEW VALUES
+        review.product = order_item.product
+        review.rating = rating
+        review.comment = comment
+        review.save()
+
+        # CREATE A PRODUCER NOTIFICATION SO REVIEWS APPEAR IN THE NOTIFICATIONS PAGE
+        if created:
+            notification_message = (
+                f'Review received: {customer_profile.name} rated "{order_item.product.name}" '
+                f'{rating}/5 on order #{order_item.order.id}.'
+            )
+        else:
+            notification_message = (
+                f'Review updated: {customer_profile.name} changed review for "{order_item.product.name}" '
+                f'to {rating}/5 on order #{order_item.order.id}.'
+            )
+
+        Notification.objects.create(
+            user=order_item.product.producer.user,
+            message=notification_message,
+        )
+
+        messages.success(request, f'Review saved for "{order_item.product.name}".')
+
+    return redirect('order_history')
+
+
+# PRODUCER REVIEWS VIEW - SHOWS ALL REVIEWS LEFT BY CUSTOMERS FOR THIS PRODUCER'S PRODUCTS
+@login_required
+def producer_reviews(request):
+    producer_profile = _get_logged_in_producer(request.user)
+    if producer_profile is None:
+        return redirect('home')
+
+    # FETCH ALL REVIEWS FOR PRODUCTS OWNED BY THIS PRODUCER
+    reviews = ProductReview.objects.filter(
+        product__producer=producer_profile
+    ).select_related(
+        'customer__user',
+        'product',
+        'order_item__order'
+    ).order_by('-created_at')
+
+    return render(
+        request,
+        'marketplace/producer_reviews.html',
+        {'reviews': reviews}
     )
 
 

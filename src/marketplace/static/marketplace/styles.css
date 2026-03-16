@@ -941,3 +941,182 @@ body {
 .producer-allergen-select {
     min-height: 180px;
 }
+
+/* --- ORDER HISTORY REVIEW STYLES --- */
+
+/* INLINE REVIEW FORM INSIDE ORDER HISTORY TABLE */
+.order-review-form {
+    min-width: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: #f7fff8;
+    border: 1px solid #cfe8d1;
+    border-radius: 8px;
+    padding: 8px;
+}
+
+/* LABELS FOR REVIEW INPUTS */
+.order-review-label {
+    font-size: 0.8rem;
+    font-weight: bold;
+    color: #2e7d32;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+/* RATING DROPDOWN IN ORDER HISTORY */
+.order-review-rating {
+    border: 1px solid #9ac99d;
+    border-radius: 4px;
+    padding: 5px 7px;
+    font-size: 0.85rem;
+    font-weight: bold;
+    color: #1b5e20;
+    background: #ffffff;
+}
+
+/* COMMENT INPUT FOR PRODUCT REVIEW */
+.order-review-comment {
+    border: 1px solid #9ac99d;
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 0.85rem;
+    resize: vertical;
+    font-weight: bold;
+    color: #1b5e20;
+    background: #ffffff;
+}
+
+/* REVIEW SAVE BUTTON */
+.order-review-btn {
+    background: #2e7d32;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    padding: 6px 8px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.order-review-btn:hover,
+.order-review-btn:focus {
+    background: #1b5e20;
+}
+
+/* --- PRODUCER REVIEWS PAGE STYLES --- */
+
+.producer-reviews-page {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.producer-reviews-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 14px;
+}
+
+.producer-review-card {
+    background: #f7fff8;
+    border: 1px solid #cfe8d1;
+    border-radius: 10px;
+    padding: 14px;
+}
+
+.producer-review-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.producer-review-product {
+    margin: 0;
+    color: #1b5e20;
+    font-size: 1rem;
+    font-weight: bold;
+}
+
+.producer-review-rating {
+    background: #2e7d32;
+    color: #fff;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-weight: bold;
+    font-size: 0.85rem;
+}
+
+.producer-review-meta {
+    margin: 4px 0;
+    color: #1b5e20;
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+
+.producer-review-comment {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #cfe8d1;
+    color: #1b5e20;
+    font-weight: bold;
+}
+
+.producer-review-comment-empty {
+    color: #2e7d32;
+    font-style: italic;
+}
+
+.producer-empty-state {
+    background: #f7fff8;
+    border: 1px solid #cfe8d1;
+    border-radius: 10px;
+    padding: 16px;
+    color: #1b5e20;
+    font-weight: bold;
+}
+
+/* --- NOTIFICATIONS STYLES --- */
+
+.notification-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 14px;
+}
+
+.notification-card {
+    background: #ffffff;
+    border: 1px solid #c8e6c9;
+    border-radius: 8px;
+    padding: 14px 16px 28px;
+    position: relative;
+}
+
+.notification-message {
+    color: #1b5e20;
+    font-weight: bold;
+    line-height: 1.45;
+    padding-right: 90px;
+}
+
+.notification-timestamp {
+    position: absolute;
+    right: 12px;
+    bottom: 8px;
+    font-size: 0.75rem;
+    color: #6b7280;
+}
+
+.notification-unread {
+    border-left: 5px solid #2e7d32;
+    background: #f7fff8;
+}
+
+.notification-review {
+    border-color: #a5d6a7;
+    box-shadow: 0 0 0 1px #cfe8d1 inset;
+}

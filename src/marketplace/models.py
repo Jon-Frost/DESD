@@ -191,3 +191,33 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"Notification for {self.user.username} - {self.created_at.date()}"
+
+
+# PRODUCT REVIEW MODEL - ALLOWS CUSTOMERS TO REVIEW ONLY PRODUCTS THEY HAVE PURCHASED
+class ProductReview(models.Model):
+    # LINK REVIEW TO THE CUSTOMER WHO WROTE IT
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='product_reviews')
+    # LINK REVIEW TO THE PRODUCT THAT WAS PURCHASED
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='reviews')
+    # LINK REVIEW TO THE EXACT ORDER ITEM PURCHASE (ONE REVIEW PER PURCHASED LINE)
+    order_item = models.OneToOneField(OrderItem, on_delete=models.CASCADE, related_name='review')
+
+    # STAR RATING CHOICES
+    RATING_CHOICES = [
+        (1, '1 - Very Poor'),
+        (2, '2 - Poor'),
+        (3, '3 - Average'),
+        (4, '4 - Good'),
+        (5, '5 - Excellent'),
+    ]
+    rating = models.PositiveSmallIntegerField(choices=RATING_CHOICES)
+
+    # OPTIONAL WRITTEN FEEDBACK
+    comment = models.TextField(blank=True)
+
+    # REVIEW TIMESTAMPS
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Review by {self.customer.name} for {self.product.name} ({self.rating}/5)"

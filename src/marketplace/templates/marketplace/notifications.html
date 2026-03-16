@@ -3,14 +3,14 @@
 <h2>Notifications</h2>
 
 {% if notifications %}
+    <div class="notification-list">
     {% for notification in notifications %}
-    <div class="order-card {% if not notification.is_read %}notification-unread{% endif %}">
-        <div class="order-header">
-            <span>{{ notification.message }}</span>
-            <span>{{ notification.created_at|date:"d M Y H:i" }}</span>
+    <div class="notification-card {% if not notification.is_read %}notification-unread{% endif %} {% if 'Review' in notification.message %}notification-review{% endif %}">
+        <div class="notification-message">{{ notification.message }}</div>
+        <div class="notification-timestamp">{{ notification.created_at|date:"d M Y H:i" }}</div>
         </div>
-    </div>
     {% endfor %}
+    </div>
 {% else %}
     <p>You have no notifications yet.</p>
 {% endif %}
