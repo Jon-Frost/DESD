@@ -1,0 +1,56 @@
+{% extends 'marketplace/base.html' %}
+{% block content %}
+<h2>My Recurring Orders</h2>
+
+<div class="order-footer">
+    <a href="{% url 'view_basket' %}" class="nav-link">Set Up New Recurring Order from Basket</a>
+</div>
+
+{% if recurring_orders %}
+    {% for recurring_order in recurring_orders %}
+    <div class="order-card">
+        <div class="order-header">
+            <span><strong>Recurring Order #{{ recurring_order.id }}</strong></span>
+            <span>Frequency: <strong>{{ recurring_order.get_frequency_display }}</strong></span>
+            <span>Next Order: <strong>{{ recurring_order.next_order_date|date:"d M Y" }}</strong></span>
+            <span>Status: <strong>{{ recurring_order.get_status_display }}</strong></span>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>Qty</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in recurring_order.items.all %}
+                <tr>
+                    <td>{{ item.product.name }}</td>
+                    <td>{{ item.quantity }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="order-footer">
+            <p>Delivering to: {{ recurring_order.delivery_address }}</p>
+
+            <form method="post" action="{% url 'update_recurring_order_status' recurring_order.id %}">
+                {% csrf_token %}
+                <select name="status">
+                    <option value="ACTIVE" {% if recurring_order.status == 'ACTIVE' %}selected{% endif %}>Active</option>
+                    <option value="PAUSED" {% if recurring_order.status == 'PAUSED' %}selected{% endif %}>Paused</option>
+                    <option value="CANCELLED" {% if recurring_order.status == 'CANCELLED' %}selected{% endif %}>Cancelled</option>
+                </select>
+                <button type="submit">Update</button>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+
+{% else %}
+    <p>You have no recurring orders yet. <a href="{% url 'view_basket' %}">Add items to your basket</a> and set up a recurring order from there.</p>
+{% endif %}
+
+{% endblock %}

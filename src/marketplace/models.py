@@ -144,3 +144,49 @@ class OrderItem(models.Model):
 
     def __str__(self):
         return f"{self.quantity}x {self.product.name} (Order #{self.order.id})"
+
+
+# RECURRING ORDER MODEL - REPRESENTS A SCHEDULED REPEAT ORDER FOR A CUSTOMER
+class RecurringOrder(models.Model):
+
+    FREQUENCY_CHOICES = [
+        ('WEEKLY', 'Weekly'),
+        ('FORTNIGHTLY', 'Fortnightly'),
+        ('MONTHLY', 'Monthly'),
+    ]
+
+    STATUS_CHOICES = [
+        ('ACTIVE', 'Active'),
+        ('PAUSED', 'Paused'),
+        ('CANCELLED', 'Cancelled'),
+    ]
+
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='recurring_orders')
+    frequency = models.CharField(max_length=15, choices=FREQUENCY_CHOICES, default='WEEKLY')
+    delivery_address = models.CharField(max_length=300)
+    next_order_date = models.DateField()
+    status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='ACTIVE')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.customer.name} - {self.frequency} from {self.next_order_date}"
+
+
+# RECURRING ORDER ITEM MODEL - REPRESENTS A SINGLE PRODUCT IN A RECURRING ORDER TEMPLATE
+class RecurringOrderItem(models.Model):
+    recurring_order = models.ForeignKey(RecurringOrder, on_delete=models.CASCADE, related_name='items')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField(default=1)
+
+    def __str__(self):
+        return f"{self.quantity}x {self.product.name}"
+    
+
+class Notification(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Notification for {self.user.username} - {self.created_at.date()}"

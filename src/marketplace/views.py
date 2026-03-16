@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from decimal import Decimal, InvalidOperation
 from django.db.models import Q
-from .models import Producer, Customer, Product, BasketItem, CustomerOrder, OrderItem
+from .models import Producer, Customer, Product, BasketItem, CustomerOrder, OrderItem, RecurringOrder, RecurringOrderItem, Notification
 from .forms import CustomerSignupForm, ProducerSignupForm, ProductForm, ProducerBioForm, CheckoutForm
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
@@ -598,7 +598,6 @@ def update_order_status(request, order_id):
     if producer_profile is None:
         return redirect('home')
 
-    # VERIFY THIS ORDER CONTAINS THIS PRODUCER'S PRODUCTS
     order = get_object_or_404(CustomerOrder, id=order_id)
     is_producers_order = order.items.filter(
         product__producer=producer_profile
@@ -613,9 +612,17 @@ def update_order_status(request, order_id):
         if new_status in valid_statuses:
             order.status = new_status
             order.save()
+
+            # CREATE NOTIFICATION FOR THE CUSTOMER
+            Notification.objects.create(
+                user=order.customer.user,
+                message=f'Your order #{order.id} from {producer_profile.business_name} is now {order.get_status_display()}.'
+            )
+
             messages.success(request, f'Order #{order.id} status updated to {order.get_status_display()}.')
 
     return redirect('producer_orders')
+
 
 
 @login_required
@@ -780,3 +787,125 @@ def download_settlement_pdf(request, week_start_str):
     p.showPage()
     p.save()
     return response
+
+@login_required
+def setup_recurring_order(request):
+    customer_profile = _get_logged_in_customer(request.user)
+    if customer_profile is None:
+        return redirect('home')
+
+    basket_items = BasketItem.objects.filter(
+        customer=customer_profile
+    ).select_related('product')
+
+    if not basket_items.exists():
+        messages.error(request, 'Your basket is empty.')
+        return redirect('view_basket')
+
+    if request.method == 'POST':
+        frequency = request.POST.get('frequency')
+        delivery_address = request.POST.get('delivery_address')
+        next_order_date = request.POST.get('next_order_date')
+
+        valid_frequencies = [choice[0] for choice in RecurringOrder.FREQUENCY_CHOICES]
+        if frequency not in valid_frequencies:
+            messages.error(request, 'Invalid frequency selected.')
+            return redirect('setup_recurring_order')
+
+        try:
+            next_order_date = date.fromisoformat(next_order_date)
+        except ValueError:
+            messages.error(request, 'Invalid date selected.')
+            return redirect('setup_recurring_order')
+
+        if next_order_date < date.today() + timedelta(days=2):
+            messages.error(request, 'First delivery must be at least 48 hours from now.')
+            return redirect('setup_recurring_order')
+
+        # CREATE THE RECURRING ORDER
+        recurring_order = RecurringOrder.objects.create(
+            customer=customer_profile,
+            frequency=frequency,
+            delivery_address=delivery_address,
+            next_order_date=next_order_date,
+        )
+
+        # ADD ITEMS FROM CURRENT BASKET
+        for item in basket_items:
+            RecurringOrderItem.objects.create(
+                recurring_order=recurring_order,
+                product=item.product,
+                quantity=item.quantity,
+            )
+
+        messages.success(
+            request,
+            f'Recurring {frequency.lower()} order set up successfully!'
+        )
+        return redirect('manage_recurring_orders')
+
+    return render(
+        request,
+        'marketplace/setup_recurring_order.html',
+        {
+            'basket_items': basket_items,
+            'frequency_choices': RecurringOrder.FREQUENCY_CHOICES,
+            'delivery_address': customer_profile.address,
+            'min_date': (date.today() + timedelta(days=2)).isoformat(),
+        }
+    )
+
+
+@login_required
+def manage_recurring_orders(request):
+    customer_profile = _get_logged_in_customer(request.user)
+    if customer_profile is None:
+        return redirect('home')
+
+    recurring_orders = RecurringOrder.objects.filter(
+        customer=customer_profile
+    ).prefetch_related('items__product').order_by('-created_at')
+
+    return render(
+        request,
+        'marketplace/manage_recurring_orders.html',
+        {'recurring_orders': recurring_orders}
+    )
+
+
+@login_required
+def update_recurring_order_status(request, recurring_order_id):
+    customer_profile = _get_logged_in_customer(request.user)
+    if customer_profile is None:
+        return redirect('home')
+
+    recurring_order = get_object_or_404(
+        RecurringOrder,
+        id=recurring_order_id,
+        customer=customer_profile
+    )
+
+    if request.method == 'POST':
+        new_status = request.POST.get('status')
+        valid_statuses = [choice[0] for choice in RecurringOrder.STATUS_CHOICES]
+        if new_status in valid_statuses:
+            recurring_order.status = new_status
+            recurring_order.save()
+            messages.success(request, f'Recurring order {new_status.lower()} successfully.')
+
+    return redirect('manage_recurring_orders')
+
+@login_required
+def notifications(request):
+    user_notifications = Notification.objects.filter(
+        user=request.user
+    ).order_by('-created_at')
+
+    # MARK ALL AS READ WHEN VIEWED
+    user_notifications.filter(is_read=False).update(is_read=True)
+
+    return render(
+        request,
+        'marketplace/notifications.html',
+        {'notifications': user_notifications}
+    )

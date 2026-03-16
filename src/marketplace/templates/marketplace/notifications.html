@@ -1,0 +1,18 @@
+{% extends 'marketplace/base.html' %}
+{% block content %}
+<h2>Notifications</h2>
+
+{% if notifications %}
+    {% for notification in notifications %}
+    <div class="order-card {% if not notification.is_read %}notification-unread{% endif %}">
+        <div class="order-header">
+            <span>{{ notification.message }}</span>
+            <span>{{ notification.created_at|date:"d M Y H:i" }}</span>
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+    <p>You have no notifications yet.</p>
+{% endif %}
+
+{% endblock %}

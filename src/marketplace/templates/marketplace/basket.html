@@ -61,6 +61,13 @@
                     </tr>
                 </tfoot>
             </table>
+
+            <!-- RECURRING ORDER BUTTON - LETS CUSTOMERS SET UP A RECURRING ORDER FROM THEIR BASKET -->
+            <div class="basket-recurring-btn-wrapper">
+                <a href="{% url 'setup_recurring_order' %}" class="nav-link">
+                    🔁 Set Up as Recurring Order
+                </a>
+            </div>
         </div>
 
         <!-- CHECKOUT FORM - COLLECTS DELIVERY ADDRESS, DATE, AND CARD DETAILS -->
@@ -165,6 +172,6 @@
             <a href="{% url 'customer_market' %}" class="producer-bio-link">Browse the market</a>
         </div>
     {% endif %}
-
+        
 </div>
 {% endblock %}
