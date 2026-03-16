@@ -28,4 +28,8 @@ urlpatterns = [
     path('producer/orders/<int:order_id>/update/', views.update_order_status, name='update_order_status'),
     path('producer/settlements/', views.payment_settlements, name='payment_settlements'),
     path('producer/settlements/<str:week_start_str>/pdf/', views.download_settlement_pdf, name='download_settlement_pdf'),
+    path('orders/recurring/setup/', views.setup_recurring_order, name='setup_recurring_order'),
+    path('orders/recurring/', views.manage_recurring_orders, name='manage_recurring_orders'),
+    path('orders/recurring/<int:recurring_order_id>/update/', views.update_recurring_order_status, name='update_recurring_order_status'),
+    path('notifications/', views.notifications, name='notifications'),
 ]
