@@ -387,9 +387,23 @@ def checkout(request):
                     quantity=item.quantity,
                     unit_price=item.product.price,
                 )
+
                 # DEDUCT THE ORDERED QUANTITY FROM THE PRODUCT'S REMAINING STOCK
                 item.product.stock_quantity -= item.quantity
                 item.product.save()
+
+                # NOTIFY THE PRODUCER OF THE NEW ORDER
+                Notification.objects.create(
+                    user=item.product.producer.user,
+                    message=f'New order #{order.id} received for {item.quantity}x {item.product.name} from {order.customer.name}. Delivery: {order.preferred_delivery_date}.'
+                )
+
+                # NOTIFY PRODUCER IF STOCK IS NOW LOW
+                if item.product.stock_quantity <= item.product.low_stock_threshold:
+                    Notification.objects.create(
+                        user=item.product.producer.user,
+                        message=f'Low stock alert: {item.product.name} only has {item.product.stock_quantity} units remaining.'
+                    )
 
             # CLEAR THE CUSTOMER'S BASKET NOW THAT THE ORDER HAS BEEN CONFIRMED
             basket_items.delete()
@@ -437,7 +451,8 @@ def order_confirmation(request, order_id):
         }
     )
 
-# order history
+
+# ORDER HISTORY VIEW - DISPLAYS ALL PAST ORDERS FOR THE CUSTOMER
 @login_required
 def order_history(request):
     customer_profile = _get_logged_in_customer(request.user)
@@ -455,6 +470,7 @@ def order_history(request):
     )
 
 
+# REORDER VIEW - ADDS ALL ITEMS FROM A PREVIOUS ORDER BACK INTO THE BASKET
 @login_required
 def reorder(request, order_id):
     customer_profile = _get_logged_in_customer(request.user)
@@ -487,6 +503,8 @@ def reorder(request, order_id):
 
     return redirect('view_basket')
 
+
+# DOWNLOAD RECEIPT VIEW - GENERATES A PDF RECEIPT FOR A SPECIFIC ORDER
 @login_required
 def download_receipt(request, order_id):
     customer_profile = _get_logged_in_customer(request.user)
@@ -561,6 +579,7 @@ def download_receipt(request, order_id):
     return response
 
 
+# PRODUCER ORDERS VIEW - DISPLAYS ALL INCOMING ORDERS FOR THE PRODUCER
 @login_required
 def producer_orders(request):
     producer_profile = _get_logged_in_producer(request.user)
@@ -592,6 +611,9 @@ def producer_orders(request):
         'marketplace/producer_orders.html',
         {'orders': orders}
     )
+
+
+# UPDATE ORDER STATUS VIEW - ALLOWS PRODUCERS TO UPDATE THE STATUS OF AN ORDER
 @login_required
 def update_order_status(request, order_id):
     producer_profile = _get_logged_in_producer(request.user)
@@ -613,7 +635,7 @@ def update_order_status(request, order_id):
             order.status = new_status
             order.save()
 
-            # CREATE NOTIFICATION FOR THE CUSTOMER
+            # NOTIFY THE CUSTOMER OF THE STATUS CHANGE
             Notification.objects.create(
                 user=order.customer.user,
                 message=f'Your order #{order.id} from {producer_profile.business_name} is now {order.get_status_display()}.'
@@ -624,7 +646,7 @@ def update_order_status(request, order_id):
     return redirect('producer_orders')
 
 
-
+# PAYMENT SETTLEMENTS VIEW - DISPLAYS WEEKLY PAYMENT SUMMARIES FOR THE PRODUCER
 @login_required
 def payment_settlements(request):
     producer_profile = _get_logged_in_producer(request.user)
@@ -640,7 +662,6 @@ def payment_settlements(request):
     # GROUP BY WEEK
     weeks = {}
     for item in order_items:
-        # GET THE MONDAY OF THE WEEK THIS ORDER WAS PLACED
         order_date = item.order.created_at.date()
         week_start = order_date - timedelta(days=order_date.weekday())
         week_end = week_start + timedelta(days=6)
@@ -690,13 +711,13 @@ def payment_settlements(request):
     )
 
 
+# DOWNLOAD SETTLEMENT PDF VIEW - GENERATES A PDF REPORT FOR A SPECIFIC WEEK
 @login_required
 def download_settlement_pdf(request, week_start_str):
     producer_profile = _get_logged_in_producer(request.user)
     if producer_profile is None:
         return redirect('home')
 
-    # PARSE THE WEEK START DATE FROM THE URL
     try:
         week_start = date.fromisoformat(week_start_str)
     except ValueError:
@@ -704,7 +725,6 @@ def download_settlement_pdf(request, week_start_str):
 
     week_end = week_start + timedelta(days=6)
 
-    # GET ALL DELIVERED ORDER ITEMS FOR THIS PRODUCER IN THIS WEEK
     order_items = OrderItem.objects.filter(
         product__producer=producer_profile,
         order__status='DELIVERED',
@@ -712,7 +732,6 @@ def download_settlement_pdf(request, week_start_str):
         order__created_at__date__lte=week_end,
     ).select_related('order__customer', 'product')
 
-    # BUILD PDF RESPONSE
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="settlement_{week_start_str}.pdf"'
 
@@ -720,7 +739,6 @@ def download_settlement_pdf(request, week_start_str):
     width, height = letter
     y = height - 50
 
-    # HEADER
     p.setFont("Helvetica-Bold", 18)
     p.drawString(50, y, "Bristol Regional Food Network")
     y -= 25
@@ -732,7 +750,6 @@ def download_settlement_pdf(request, week_start_str):
     p.drawString(50, y, f"Week: {week_start.strftime('%d %b %Y')} - {week_end.strftime('%d %b %Y')}")
     y -= 30
 
-    # TABLE HEADER
     p.setFont("Helvetica-Bold", 10)
     p.drawString(50, y, "Order #")
     p.drawString(110, y, "Date")
@@ -745,7 +762,6 @@ def download_settlement_pdf(request, week_start_str):
     p.line(50, y, 580, y)
     y -= 18
 
-    # ROWS
     gross_total = Decimal('0.00')
     total_commission = Decimal('0.00')
     total_producer = Decimal('0.00')
@@ -773,7 +789,6 @@ def download_settlement_pdf(request, week_start_str):
             p.showPage()
             y = height - 50
 
-    # TOTALS
     y -= 10
     p.line(50, y, 580, y)
     y -= 20
@@ -788,6 +803,8 @@ def download_settlement_pdf(request, week_start_str):
     p.save()
     return response
 
+
+# SETUP RECURRING ORDER VIEW - CREATES A RECURRING ORDER FROM THE CUSTOMER'S BASKET
 @login_required
 def setup_recurring_order(request):
     customer_profile = _get_logged_in_customer(request.user)
@@ -822,7 +839,6 @@ def setup_recurring_order(request):
             messages.error(request, 'First delivery must be at least 48 hours from now.')
             return redirect('setup_recurring_order')
 
-        # CREATE THE RECURRING ORDER
         recurring_order = RecurringOrder.objects.create(
             customer=customer_profile,
             frequency=frequency,
@@ -830,7 +846,6 @@ def setup_recurring_order(request):
             next_order_date=next_order_date,
         )
 
-        # ADD ITEMS FROM CURRENT BASKET
         for item in basket_items:
             RecurringOrderItem.objects.create(
                 recurring_order=recurring_order,
@@ -856,6 +871,7 @@ def setup_recurring_order(request):
     )
 
 
+# MANAGE RECURRING ORDERS VIEW - DISPLAYS ALL RECURRING ORDERS FOR THE CUSTOMER
 @login_required
 def manage_recurring_orders(request):
     customer_profile = _get_logged_in_customer(request.user)
@@ -873,6 +889,7 @@ def manage_recurring_orders(request):
     )
 
 
+# UPDATE RECURRING ORDER STATUS VIEW - ALLOWS CUSTOMERS TO PAUSE OR CANCEL RECURRING ORDERS
 @login_required
 def update_recurring_order_status(request, recurring_order_id):
     customer_profile = _get_logged_in_customer(request.user)
@@ -895,6 +912,8 @@ def update_recurring_order_status(request, recurring_order_id):
 
     return redirect('manage_recurring_orders')
 
+
+# NOTIFICATIONS VIEW - DISPLAYS ALL NOTIFICATIONS FOR THE LOGGED-IN USER
 @login_required
 def notifications(request):
     user_notifications = Notification.objects.filter(
