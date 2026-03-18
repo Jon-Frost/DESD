@@ -17,6 +17,16 @@
         </div>
     {% endif %}
 
+    <!-- RECURRING ORDER SETUP NOTICE - SHOWN WHEN A RECURRING ORDER IS BEING SET UP -->
+    {% if recurring_order_setup %}
+        <div class="market-messages">
+            <p class="market-message market-message--success">
+                <strong>Recurring Order Setup in Progress:</strong> You are setting up a {{ recurring_order_setup.frequency|lower }} recurring order. Complete your payment below to confirm.
+                <a href="{% url 'cancel_recurring_setup' %}" style="margin-left: 15px; text-decoration: underline;">Cancel</a>
+            </p>
+        </div>
+    {% endif %}
+
     {% if basket_items %}
 
         <!-- BASKET ITEMS TABLE - LISTS ALL PRODUCTS THE CUSTOMER HAS ADDED -->
@@ -65,7 +75,7 @@
             <!-- RECURRING ORDER BUTTON - LETS CUSTOMERS SET UP A RECURRING ORDER FROM THEIR BASKET -->
             <div class="basket-recurring-btn-wrapper">
                 <a href="{% url 'setup_recurring_order' %}" class="nav-link">
-                    🔁 Set Up as Recurring Order
+                    Set Up as Recurring Order
                 </a>
             </div>
         </div>

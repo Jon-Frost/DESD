@@ -305,6 +305,9 @@ def view_basket(request):
     # INITIALISE A BLANK CHECKOUT FORM FOR THE CUSTOMER TO FILL IN
     form = CheckoutForm()
 
+    # CHECK IF A RECURRING ORDER SETUP IS IN PROGRESS
+    recurring_order_setup = request.session.get('recurring_order_data', None)
+
     return render(
         request,
         'marketplace/basket.html',
@@ -312,6 +315,7 @@ def view_basket(request):
             'basket_items': basket_items,
             'total': total,
             'form': form,
+            'recurring_order_setup': recurring_order_setup,
         }
     )
 
@@ -407,6 +411,29 @@ def checkout(request):
 
             # CLEAR THE CUSTOMER'S BASKET NOW THAT THE ORDER HAS BEEN CONFIRMED
             basket_items.delete()
+
+            # CREATE RECURRING ORDER IF ONE WAS SET UP IN THE SETUP PAGE
+            if 'recurring_order_data' in request.session:
+                recurring_data = request.session.pop('recurring_order_data')
+                recurring_order = RecurringOrder.objects.create(
+                    customer=customer_profile,
+                    frequency=recurring_data['frequency'],
+                    delivery_address=recurring_data['delivery_address'],
+                    next_order_date=date.fromisoformat(recurring_data['next_order_date']),
+                )
+                
+                # ADD ALL THE PRODUCTS FROM THIS ORDER TO THE RECURRING ORDER
+                for order_item in order.items.all():
+                    RecurringOrderItem.objects.create(
+                        recurring_order=recurring_order,
+                        product=order_item.product,
+                        quantity=order_item.quantity,
+                    )
+                
+                messages.success(
+                    request,
+                    f'Recurring {recurring_data["frequency"].lower()} order created successfully!'
+                )
 
             # REDIRECT TO THE ORDER CONFIRMATION PAGE
             return redirect('order_confirmation', order_id=order.id)
@@ -909,7 +936,7 @@ def download_settlement_pdf(request, week_start_str):
     return response
 
 
-# SETUP RECURRING ORDER VIEW - CREATES A RECURRING ORDER FROM THE CUSTOMER'S BASKET
+# SETUP RECURRING ORDER VIEW - STORES RECURRING ORDER DETAILS IN SESSION AND DIRECTS BACK TO BASKET FOR PAYMENT
 @login_required
 def setup_recurring_order(request):
     customer_profile = _get_logged_in_customer(request.user)
@@ -944,25 +971,18 @@ def setup_recurring_order(request):
             messages.error(request, 'First delivery must be at least 48 hours from now.')
             return redirect('setup_recurring_order')
 
-        recurring_order = RecurringOrder.objects.create(
-            customer=customer_profile,
-            frequency=frequency,
-            delivery_address=delivery_address,
-            next_order_date=next_order_date,
-        )
-
-        for item in basket_items:
-            RecurringOrderItem.objects.create(
-                recurring_order=recurring_order,
-                product=item.product,
-                quantity=item.quantity,
-            )
-
+        # STORE THE RECURRING ORDER DETAILS IN THE SESSION
+        request.session['recurring_order_data'] = {
+            'frequency': frequency,
+            'delivery_address': delivery_address,
+            'next_order_date': next_order_date.isoformat(),
+        }
+        
         messages.success(
             request,
-            f'Recurring {frequency.lower()} order set up successfully!'
+            'Recurring order details saved. Please complete payment to confirm your recurring order.'
         )
-        return redirect('manage_recurring_orders')
+        return redirect('view_basket')
 
     return render(
         request,
@@ -974,6 +994,21 @@ def setup_recurring_order(request):
             'min_date': (date.today() + timedelta(days=2)).isoformat(),
         }
     )
+
+
+# CANCEL RECURRING ORDER SETUP VIEW - CANCELS AN IN-PROGRESS RECURRING ORDER SETUP
+@login_required
+def cancel_recurring_setup(request):
+    customer_profile = _get_logged_in_customer(request.user)
+    if customer_profile is None:
+        return redirect('home')
+
+    # REMOVE THE RECURRING ORDER DATA FROM THE SESSION
+    if 'recurring_order_data' in request.session:
+        del request.session['recurring_order_data']
+        messages.info(request, 'Recurring order setup cancelled.')
+    
+    return redirect('view_basket')
 
 
 # MANAGE RECURRING ORDERS VIEW - DISPLAYS ALL RECURRING ORDERS FOR THE CUSTOMER
