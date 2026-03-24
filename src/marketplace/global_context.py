@@ -8,8 +8,12 @@ def basket_count(request):
     # ONLY COUNT BASKET ITEMS IF THE USER IS AUTHENTICATED
     is_customer = False
     is_producer = False
+    is_admin = False
 
     if request.user.is_authenticated:
+        # CHECK IF THE USER IS A STAFF/SUPERUSER (ADMIN)
+        is_admin = request.user.is_staff or request.user.is_superuser
+
         try:
             # ATTEMPT TO GET THE CUSTOMER PROFILE LINKED TO THE LOGGED-IN USER
             customer = request.user.customer
@@ -34,4 +38,5 @@ def basket_count(request):
         'basket_count': count,
         'is_customer': is_customer,
         'is_producer': is_producer,
+        'is_admin': is_admin,
     }

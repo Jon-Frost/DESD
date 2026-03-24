@@ -4,6 +4,10 @@ from django.contrib.auth import views as auth_views
 
 urlpatterns = [
     path('', views.home, name='home'),
+    path('dashboard/', views.admin_dashboard, name='admin_dashboard'),
+    path('dashboard/profiles/', views.admin_profiles, name='admin_profiles'),
+    path('dashboard/orders/', views.admin_orders, name='admin_orders'),
+    path('dashboard/reports/', views.admin_reports, name='admin_reports'),
     path('signup/', views.signup_choice, name='signup_choice'),
     path('signup/producer/', views.signup_producer, name='signup_producer'),
     path('signup/customer/', views.signup_customer, name='signup_customer'),

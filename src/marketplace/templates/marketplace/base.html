@@ -53,7 +53,14 @@
         <aside class="sidebar">
             <h3>Menu</h3>
             <ul>
-                <li><a href="{% url 'home' %}" class="nav-link">Home</a></li>
+                {% if user.is_authenticated and is_admin %}
+                    <li><a href="{% url 'admin_dashboard' %}" class="nav-link">Dashboard</a></li>
+                    <li><a href="{% url 'admin_profiles' %}" class="nav-link">View Profiles</a></li>
+                    <li><a href="{% url 'admin_orders' %}" class="nav-link">View Order History</a></li>
+                    <li><a href="{% url 'admin_reports' %}" class="nav-link">Reports</a></li>
+                {% else %}
+                    <li><a href="{% url 'home' %}" class="nav-link">Home</a></li>
+                {% endif %}
                 {% if user.is_authenticated and is_producer %}
                     <li><a href="{% url 'add_product' %}" class="nav-link">+ Add Product</a></li>
                     <li><a href="{% url 'producer_bio' %}" class="nav-link">My Bio</a></li>

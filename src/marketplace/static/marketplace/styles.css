@@ -1121,115 +1121,247 @@ body {
     box-shadow: 0 0 0 1px #cfe8d1 inset;
 }
 
-/* --- ORDER CARD STYLES (RECURRING ORDERS & ORDER HISTORY) --- */
 
-.order-card {
-    background: #ffffff;
-    border: 1px solid #c8e6c9;
-    border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 20px;
+/* ============================================================
+   ADMIN DASHBOARD STYLES (BLUE THEME)
+   All admin-specific styling is kept in this section.
+   Blue palette replaces the green used elsewhere.
+   Primary: #1565c0  Light BG: #e3f2fd  Dark: #0d47a1
+   Border: #90caf9   Accent BG: #bbdefb
+   ============================================================ */
+
+/* --- ADMIN PAGE WRAPPER --- */
+.admin-page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 10px 0;
 }
 
-.order-header {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 20px;
+/* --- ADMIN PANEL (SHARED SECTION BOX) --- */
+.admin-panel {
+    background: #ffffff;
+    border: 1px solid #90caf9;
+    border-radius: 8px;
+    padding: 24px 28px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.admin-panel h2 {
+    margin-top: 0;
+    color: #0d47a1;
+    border-bottom: 2px solid #bbdefb;
+    padding-bottom: 8px;
     margin-bottom: 16px;
-    padding-bottom: 12px;
+    font-size: 1.25rem;
+}
+
+/* --- ADMIN WELCOME BANNER --- */
+.admin-welcome {
+    background: #e3f2fd;
+    border-left: 5px solid #1565c0;
+}
+
+.admin-welcome h1 {
+    margin: 0 0 6px;
+    color: #0d47a1;
+    font-size: 1.5rem;
+}
+
+.admin-welcome p {
+    margin: 0;
+    color: #37474f;
+}
+
+/* --- ADMIN KPI CARDS --- */
+.admin-kpi-row {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.admin-kpi-card {
+    flex: 1 1 180px;
+    background: #e3f2fd;
+    border: 1px solid #90caf9;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+}
+
+.admin-kpi-label {
+    margin: 0 0 4px;
+    font-size: 0.85rem;
+    color: #546e7a;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.admin-kpi-value {
+    margin: 0;
+    font-size: 2rem;
+    font-weight: bold;
+    color: #1565c0;
+}
+
+/* --- ADMIN PROFILES GRID --- */
+.admin-profiles-grid {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+}
+
+.admin-profile-column {
+    flex: 1 1 300px;
+}
+
+.admin-profile-column h3 {
+    color: #1565c0;
+    margin-top: 0;
+    margin-bottom: 12px;
+    font-size: 1.05rem;
+}
+
+.admin-profile-card {
+    background: #f5f9ff;
+    border: 1px solid #bbdefb;
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin-bottom: 10px;
+}
+
+.admin-profile-card strong {
+    color: #0d47a1;
+}
+
+.admin-meta {
+    font-size: 0.82rem;
+    color: #607d8b;
+}
+
+/* --- ADMIN ORDER HISTORY TABLE --- */
+.admin-table-wrap {
+    overflow-x: auto;
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.92rem;
+}
+
+.admin-table th {
+    background: #1565c0;
+    color: #ffffff;
+    text-align: left;
+    padding: 10px 14px;
+    font-weight: 600;
+}
+
+.admin-table th:first-child {
+    border-radius: 6px 0 0 0;
+}
+
+.admin-table th:last-child {
+    border-radius: 0 6px 0 0;
+}
+
+.admin-table td {
+    padding: 10px 14px;
     border-bottom: 1px solid #e0e0e0;
 }
 
-.order-header span {
-    font-size: 0.95rem;
-    color: #333;
+.admin-table tbody tr:hover {
+    background: #e3f2fd;
 }
 
-.order-footer {
-    margin-top: 16px;
-    padding-top: 12px;
-    border-top: 1px solid #e0e0e0;
+.admin-status-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: #bbdefb;
+    color: #0d47a1;
 }
 
-/* --- FORM GROUP STYLES --- */
-
-.form-group {
-    margin-bottom: 18px;
+/* --- ADMIN SIDEBAR LINK OVERRIDES --- */
+/* When the admin sidebar is active, tint links blue */
+.sidebar a[href*="dashboard"] {
+    color: #1565c0;
 }
 
-.form-group label {
-    display: block;
-    font-weight: bold;
-    margin-bottom: 6px;
-    color: #333;
+.sidebar a[href*="dashboard"]:hover,
+.sidebar a[href*="dashboard"]:focus {
+    color: #0d47a1;
+    text-decoration: underline;
 }
 
-.form-group .auth-field {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    box-sizing: border-box;
-    font-size: 0.95rem;
+/* --- ADMIN QUICK LINK CARDS (DASHBOARD) --- */
+a.admin-quick-link {
+    text-decoration: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    cursor: pointer;
 }
 
-.form-group .auth-field:focus {
-    outline: none;
-    border-color: #2e7d32;
-    box-shadow: 0 0 5px rgba(46, 125, 50, 0.2);
+a.admin-quick-link:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(21, 101, 192, 0.25);
 }
 
-.form-group small {
-    display: block;
-    color: #666;
+/* --- ADMIN REPORT FORM --- */
+.admin-report-form-row {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+}
+
+.admin-report-field {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 180px;
+}
+
+.admin-report-field label {
     font-size: 0.85rem;
-    margin-top: 4px;
+    font-weight: 600;
+    color: #37474f;
+    margin-bottom: 4px;
 }
 
-/* --- CONFIRM/SUBMIT BUTTON STYLES --- */
+.admin-report-field select,
+.admin-report-field input[type="date"] {
+    padding: 8px 10px;
+    border: 1px solid #90caf9;
+    border-radius: 5px;
+    font-size: 0.92rem;
+    background: #ffffff;
+}
 
-button[type="submit"],
-.confirm-btn {
-    background: #2e7d32;
-    color: white;
-    padding: 12px 24px;
+.admin-report-field select:focus,
+.admin-report-field input[type="date"]:focus {
+    outline: none;
+    border-color: #1565c0;
+    box-shadow: 0 0 0 2px rgba(21, 101, 192, 0.2);
+}
+
+.admin-report-submit {
+    flex: 0 0 auto;
+}
+
+.admin-report-btn {
+    padding: 9px 24px;
+    background: #1565c0;
+    color: #ffffff;
     border: none;
     border-radius: 5px;
+    font-size: 0.95rem;
+    font-weight: 600;
     cursor: pointer;
-    font-size: 1rem;
-    font-weight: bold;
-    transition: background 0.2s;
-    margin-right: 10px;
-    margin-top: 10px;
+    transition: background 0.15s ease;
 }
 
-button[type="submit"]:hover,
-.confirm-btn:hover {
-    background: #1b5e20;
-}
-
-button[type="submit"]:focus,
-.confirm-btn:focus {
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.2);
-}
-
-/* CANCEL/SECONDARY LINK BUTTON STYLE */
-
-.cancel-btn {
-    display: inline-block;
-    background: #f0f3f4;
-    color: #333;
-    padding: 12px 24px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    text-decoration: none;
-    font-weight: bold;
-    font-size: 1rem;
-    transition: background 0.2s;
-    margin-top: 10px;
-}
-
-.cancel-btn:hover {
-    background: #e0e0e0;
+.admin-report-btn:hover {
+    background: #0d47a1;
 }
