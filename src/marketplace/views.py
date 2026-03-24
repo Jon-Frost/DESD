@@ -310,7 +310,7 @@ def customer_market(request):
     if customer_profile is None:
         return redirect('home')
 
-    # MARKET FILTER INPUTS FROM QUERY STRING
+    search_query = request.GET.get('q', '').strip()
     min_price_input = request.GET.get('min_price', '').strip()
     max_price_input = request.GET.get('max_price', '').strip()
     organic_input = request.GET.get('organic', 'all').strip().lower()
@@ -319,7 +319,15 @@ def customer_market(request):
 
     products = Product.objects.select_related('producer').order_by('name')
 
-    # APPLY MIN/MAX PRICE FILTERS WHEN VALUES ARE VALID DECIMALS
+    if search_query:
+        products = products.filter(
+            Q(name__icontains=search_query) |
+            Q(description__icontains=search_query) |
+            Q(category__icontains=search_query) |
+            Q(producer__business_name__icontains=search_query) |
+            Q(producer__contact_name__icontains=search_query)
+        )
+
     if min_price_input:
         try:
             min_price = Decimal(min_price_input)
@@ -334,18 +342,15 @@ def customer_market(request):
         except (InvalidOperation, ValueError):
             messages.error(request, 'Invalid maximum price filter value.')
 
-    # APPLY ORGANIC STATUS FILTER
     if organic_input == 'true':
         products = products.filter(is_organic=True)
     elif organic_input == 'false':
         products = products.filter(is_organic=False)
 
-    # APPLY CATEGORY FILTER ONLY WHEN IT MATCHES A VALID CATEGORY KEY
     valid_categories = {choice[0] for choice in Product.CATEGORY_CHOICES}
     if category_input in valid_categories:
         products = products.filter(category=category_input)
 
-    # APPLY ALLERGEN FILTER IN REVERSE - REMOVE PRODUCTS CONTAINING ANY SELECTED ALLERGEN
     valid_allergens = {choice[0] for choice in Product.ALLERGEN_CHOICES}
     selected_allergens = [allergen for allergen in allergen_inputs if allergen in valid_allergens]
     if selected_allergens:
@@ -353,6 +358,9 @@ def customer_market(request):
         for allergen in selected_allergens:
             allergen_query |= Q(allergens__contains=[allergen])
         products = products.exclude(allergen_query)
+
+    print("SEARCH QUERY:", search_query)
+    print("PRODUCT COUNT:", products.count())
 
     return render(
         request,
@@ -362,6 +370,7 @@ def customer_market(request):
             'category_choices': Product.CATEGORY_CHOICES,
             'allergen_choices': Product.ALLERGEN_CHOICES,
             'selected_filters': {
+                'q': search_query,
                 'min_price': min_price_input,
                 'max_price': max_price_input,
                 'organic': organic_input,

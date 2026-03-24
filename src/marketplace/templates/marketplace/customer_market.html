@@ -7,9 +7,25 @@
     <h2 class="auth-title">Market</h2>
     <p class="auth-subtitle">Browse all listings from producers across the network.</p>
 
+
+    
+
     <!-- MARKET FILTER FORM - USES GET SO FILTERS ARE VISIBLE IN THE URL -->
     <div class="producer-panel market-filter-panel">
         <form method="get" action="{% url 'customer_market' %}" class="market-filter-form">
+            <div class="market-filter-field market-search-field">
+                <label class="auth-label" for="q">Search products</label>
+                <input
+                     class="auth-field"
+                     type="text"
+                     name="q"
+                     id="q"
+                    value="{{ selected_filters.q }}"
+                    placeholder="Search by product, description, category, or producer"
+                >
+            </div>
+            
+            
             <!-- MINIMUM PRICE FILTER -->
             <div class="market-filter-field">
                 <label class="auth-label" for="min_price">Min Price (£)</label>
