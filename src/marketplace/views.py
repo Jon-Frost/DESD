@@ -2,7 +2,8 @@ from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from decimal import Decimal, InvalidOperation
-from django.db.models import Q
+from django.db.models import Q, Sum
+from django.contrib.auth.models import User
 from .models import Producer, Customer, Product, BasketItem, CustomerOrder, OrderItem, RecurringOrder, RecurringOrderItem, Notification, ProductReview
 from .forms import CustomerSignupForm, ProducerSignupForm, ProductForm, ProducerBioForm, CheckoutForm
 from reportlab.lib.pagesizes import letter
@@ -10,7 +11,16 @@ from reportlab.pdfgen import canvas
 from django.http import HttpResponse
 from datetime import date, timedelta
 
+
+# ADMIN ROLE CHECK - RETURNS TRUE IF THE USER IS A STAFF OR SUPERUSER
+def _is_admin_user(user):
+    return user.is_authenticated and (user.is_staff or user.is_superuser)
+
+
 def home(request):
+    # REDIRECT ADMIN USERS TO THEIR OWN DASHBOARD ON LOGIN
+    if _is_admin_user(request.user):
+        return redirect('admin_dashboard')
     return render(request, 'marketplace/home.html')
 
 def signup_choice(request):
@@ -77,6 +87,167 @@ def _get_logged_in_customer(user):
         return user.customer
     except Customer.DoesNotExist:
         return None
+
+
+# =====================================================================
+# ADMIN DASHBOARD VIEW - DISPLAYS THE ADMIN HOME PAGE WITH KPI SUMMARY
+# =====================================================================
+@login_required
+def admin_dashboard(request):
+    # ONLY ALLOW STAFF / SUPERUSERS TO ACCESS THE ADMIN DASHBOARD
+    if not _is_admin_user(request.user):
+        return redirect('home')
+
+    return render(
+        request,
+        'marketplace/admin_dashboard.html',
+        {
+            'total_orders': CustomerOrder.objects.count(),
+            'total_producers': Producer.objects.count(),
+            'total_customers': Customer.objects.count(),
+        }
+    )
+
+
+# =====================================================================
+# ADMIN PROFILES VIEW - DISPLAYS ALL PRODUCER AND CUSTOMER PROFILES
+# =====================================================================
+@login_required
+def admin_profiles(request):
+    if not _is_admin_user(request.user):
+        return redirect('home')
+
+    producers = Producer.objects.select_related('user').order_by('business_name')
+    customers = Customer.objects.select_related('user').order_by('name')
+
+    return render(
+        request,
+        'marketplace/admin_profiles.html',
+        {
+            'producers': producers,
+            'customers': customers,
+            'total_producers': producers.count(),
+            'total_customers': customers.count(),
+        }
+    )
+
+
+# =====================================================================
+# ADMIN ORDER HISTORY VIEW - DISPLAYS ALL ORDERS ACROSS THE PLATFORM
+# =====================================================================
+@login_required
+def admin_orders(request):
+    if not _is_admin_user(request.user):
+        return redirect('home')
+
+    orders = CustomerOrder.objects.select_related(
+        'customer__user'
+    ).prefetch_related(
+        'items__product__producer'
+    ).order_by('-created_at')
+
+    return render(
+        request,
+        'marketplace/admin_orders.html',
+        {
+            'orders': orders,
+            'total_orders': orders.count(),
+        }
+    )
+
+
+# =====================================================================
+# ADMIN REPORTS VIEW - GENERATES FINANCIAL OR PLATFORM USAGE REPORTS
+# =====================================================================
+@login_required
+def admin_reports(request):
+    if not _is_admin_user(request.user):
+        return redirect('home')
+
+    report_type = request.GET.get('report_type', '')
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
+
+    # PARSE DATE RANGE FILTERS
+    parsed_from = None
+    parsed_to = None
+    if date_from:
+        try:
+            parsed_from = date.fromisoformat(date_from)
+        except ValueError:
+            parsed_from = None
+    if date_to:
+        try:
+            parsed_to = date.fromisoformat(date_to)
+        except ValueError:
+            parsed_to = None
+
+    report_data = None
+
+    # --- FINANCIAL REPORT ---
+    if report_type == 'financial':
+        orders = CustomerOrder.objects.all()
+
+        # APPLY DATE FILTERS ON ORDER CREATED DATE
+        if parsed_from:
+            orders = orders.filter(created_at__date__gte=parsed_from)
+        if parsed_to:
+            orders = orders.filter(created_at__date__lte=parsed_to)
+
+        total_sales = orders.aggregate(total=Sum('total_price'))['total'] or Decimal('0.00')
+        total_commission = round(total_sales * Decimal('0.05'), 2)
+        total_producer_payouts = round(total_sales * Decimal('0.95'), 2)
+        order_count = orders.count()
+        average_order_value = round(total_sales / order_count, 2) if order_count else Decimal('0.00')
+
+        report_data = {
+            'type': 'financial',
+            'total_sales': total_sales,
+            'total_commission': total_commission,
+            'total_producer_payouts': total_producer_payouts,
+            'order_count': order_count,
+            'average_order_value': average_order_value,
+        }
+
+    # --- PLATFORM USAGE REPORT ---
+    elif report_type == 'platform_usage':
+        users = User.objects.all()
+        orders = CustomerOrder.objects.all()
+
+        # APPLY DATE FILTERS
+        if parsed_from:
+            new_users = users.filter(date_joined__date__gte=parsed_from)
+            orders = orders.filter(created_at__date__gte=parsed_from)
+        else:
+            new_users = users.none()
+
+        if parsed_to:
+            new_users = (users.filter(date_joined__date__gte=parsed_from) if parsed_from else users).filter(date_joined__date__lte=parsed_to)
+            orders = orders.filter(created_at__date__lte=parsed_to)
+
+        total_accounts = users.count()
+        new_accounts = new_users.count() if (parsed_from or parsed_to) else total_accounts
+        total_products = Product.objects.count()
+        total_orders = orders.count()
+
+        report_data = {
+            'type': 'platform_usage',
+            'total_accounts': total_accounts,
+            'new_accounts': new_accounts,
+            'total_products': total_products,
+            'total_orders': total_orders,
+        }
+
+    return render(
+        request,
+        'marketplace/admin_reports.html',
+        {
+            'report_type': report_type,
+            'date_from': date_from,
+            'date_to': date_to,
+            'report_data': report_data,
+        }
+    )
 
 
 @login_required
@@ -1009,6 +1180,73 @@ def cancel_recurring_setup(request):
         messages.info(request, 'Recurring order setup cancelled.')
     
     return redirect('view_basket')
+
+
+# SETUP RECURRING ORDER VIEW - CREATES A RECURRING ORDER FROM THE CUSTOMER'S BASKET
+@login_required
+def setup_recurring_order(request):
+    customer_profile = _get_logged_in_customer(request.user)
+    if customer_profile is None:
+        return redirect('home')
+
+    basket_items = BasketItem.objects.filter(
+        customer=customer_profile
+    ).select_related('product')
+
+    if not basket_items.exists():
+        messages.error(request, 'Your basket is empty.')
+        return redirect('view_basket')
+
+    if request.method == 'POST':
+        frequency = request.POST.get('frequency')
+        delivery_address = request.POST.get('delivery_address')
+        next_order_date = request.POST.get('next_order_date')
+
+        valid_frequencies = [choice[0] for choice in RecurringOrder.FREQUENCY_CHOICES]
+        if frequency not in valid_frequencies:
+            messages.error(request, 'Invalid frequency selected.')
+            return redirect('setup_recurring_order')
+
+        try:
+            next_order_date = date.fromisoformat(next_order_date)
+        except ValueError:
+            messages.error(request, 'Invalid date selected.')
+            return redirect('setup_recurring_order')
+
+        if next_order_date < date.today() + timedelta(days=2):
+            messages.error(request, 'First delivery must be at least 48 hours from now.')
+            return redirect('setup_recurring_order')
+
+        recurring_order = RecurringOrder.objects.create(
+            customer=customer_profile,
+            frequency=frequency,
+            delivery_address=delivery_address,
+            next_order_date=next_order_date,
+        )
+
+        for item in basket_items:
+            RecurringOrderItem.objects.create(
+                recurring_order=recurring_order,
+                product=item.product,
+                quantity=item.quantity,
+            )
+
+        messages.success(
+            request,
+            f'Recurring {frequency.lower()} order set up successfully!'
+        )
+        return redirect('manage_recurring_orders')
+
+    return render(
+        request,
+        'marketplace/setup_recurring_order.html',
+        {
+            'basket_items': basket_items,
+            'frequency_choices': RecurringOrder.FREQUENCY_CHOICES,
+            'delivery_address': customer_profile.address,
+            'min_date': (date.today() + timedelta(days=2)).isoformat(),
+        }
+    )
 
 
 # MANAGE RECURRING ORDERS VIEW - DISPLAYS ALL RECURRING ORDERS FOR THE CUSTOMER
