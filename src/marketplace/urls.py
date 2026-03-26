@@ -25,6 +25,7 @@ urlpatterns = [
     path('basket/', views.view_basket, name='view_basket'),
     path('basket/remove/<int:item_id>/', views.remove_from_basket, name='remove_from_basket'),
     path('basket/checkout/', views.checkout, name='checkout'),
+    path('orders/checkout/stripe/success/', views.stripe_checkout_success, name='stripe_checkout_success'),
     path('orders/<int:order_id>/confirmation/', views.order_confirmation, name='order_confirmation'),
     path('orders/', views.order_history, name='order_history'),
     path('orders/items/<int:order_item_id>/review/', views.submit_product_review, name='submit_product_review'),

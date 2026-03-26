@@ -10,6 +10,19 @@
     <!-- MARKET FILTER FORM - USES GET SO FILTERS ARE VISIBLE IN THE URL -->
     <div class="producer-panel market-filter-panel">
         <form method="get" action="{% url 'customer_market' %}" class="market-filter-form">
+            <!-- PRODUCT NAME SEARCH FILTER -->
+            <div class="market-filter-field market-filter-field--full">
+                <label class="auth-label" for="search">Search by Product Name</label>
+                <input
+                    class="auth-field"
+                    type="text"
+                    name="search"
+                    id="search"
+                    value="{{ selected_filters.search }}"
+                    placeholder="e.g. tomatoes"
+                >
+            </div>
+
             <!-- MINIMUM PRICE FILTER -->
             <div class="market-filter-field">
                 <label class="auth-label" for="min_price">Min Price (£)</label>

@@ -486,6 +486,36 @@ body {
     font-style: italic;
 }
 
+/* --- STRIPE PAYMENT BADGES --- */
+
+.stripe-badge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid #c7d4ff;
+    border-radius: 8px;
+    background: #f6f8ff;
+    color: #1f2d66;
+    margin: 10px 0 18px;
+    font-size: 0.95rem;
+}
+
+.stripe-badge-logo {
+    display: inline-block;
+    font-weight: bold;
+    color: #635bff;
+    background: #ffffff;
+    border: 1px solid #d7dcff;
+    border-radius: 6px;
+    padding: 3px 8px;
+    letter-spacing: 0.2px;
+}
+
+.stripe-confirmation-line {
+    color: #22306f;
+}
+
 .producer-product-description,
 .producer-product-allergens {
     color: #444;

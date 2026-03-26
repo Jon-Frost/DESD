@@ -83,6 +83,23 @@
         <!-- CHECKOUT FORM - COLLECTS DELIVERY ADDRESS, DATE, AND CARD DETAILS -->
         <div class="basket-checkout-panel">
             <h3 class="basket-checkout-title">Checkout Details</h3>
+            {% if stripe_enabled %}
+                <p class="auth-subtitle">You will be redirected to Stripe Test Checkout to complete a placeholder payment.</p>
+            {% else %}
+                <p class="auth-subtitle">Stripe is not active in this runtime, so checkout will complete locally as a placeholder flow.</p>
+            {% endif %}
+
+            {% if stripe_enabled %}
+                <div class="stripe-badge stripe-badge--checkout" role="status" aria-live="polite">
+                    <span class="stripe-badge-logo" aria-hidden="true">Stripe</span>
+                    <span>
+                        Secure checkout powered by Stripe
+                        {% if stripe_test_mode %}
+                            <strong>• Test Mode • No real charge</strong>
+                        {% endif %}
+                    </span>
+                </div>
+            {% endif %}
 
             <form class="auth-form" method="post" action="{% url 'checkout' %}">
                 {% csrf_token %}
@@ -169,7 +186,11 @@
 
                 <!-- PLACE ORDER BUTTON - SUBMITS THE CHECKOUT FORM -->
                 <button class="auth-submit-btn basket-place-order-btn" type="submit">
-                    Place Order — £{{ total }}
+                    {% if stripe_enabled %}
+                        Proceed to Test Payment — £{{ total }}
+                    {% else %}
+                        Place Order — £{{ total }}
+                    {% endif %}
                 </button>
 
             </form>
