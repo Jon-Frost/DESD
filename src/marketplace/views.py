@@ -17,11 +17,147 @@ def _is_admin_user(user):
     return user.is_authenticated and (user.is_staff or user.is_superuser)
 
 
+def _parse_report_date(date_input):
+    if not date_input:
+        return None
+    try:
+        return date.fromisoformat(date_input)
+    except ValueError:
+        return None
+
+
+def _build_admin_report_data(report_type, parsed_from=None, parsed_to=None):
+    # FINANCIAL REPORT DATA
+    if report_type == 'financial':
+        orders = CustomerOrder.objects.all()
+
+        if parsed_from:
+            orders = orders.filter(created_at__date__gte=parsed_from)
+        if parsed_to:
+            orders = orders.filter(created_at__date__lte=parsed_to)
+
+        total_sales = orders.aggregate(total=Sum('total_price'))['total'] or Decimal('0.00')
+        total_commission = round(total_sales * Decimal('0.05'), 2)
+        total_producer_payouts = round(total_sales * Decimal('0.95'), 2)
+        order_count = orders.count()
+        average_order_value = round(total_sales / order_count, 2) if order_count else Decimal('0.00')
+
+        return {
+            'type': 'financial',
+            'total_sales': total_sales,
+            'total_commission': total_commission,
+            'total_producer_payouts': total_producer_payouts,
+            'order_count': order_count,
+            'average_order_value': average_order_value,
+        }
+
+    # PLATFORM USAGE REPORT DATA
+    if report_type == 'platform_usage':
+        users = User.objects.all()
+        orders = CustomerOrder.objects.all()
+        new_users = users
+
+        if parsed_from:
+            new_users = new_users.filter(date_joined__date__gte=parsed_from)
+            orders = orders.filter(created_at__date__gte=parsed_from)
+
+        if parsed_to:
+            new_users = new_users.filter(date_joined__date__lte=parsed_to)
+            orders = orders.filter(created_at__date__lte=parsed_to)
+
+        total_accounts = users.count()
+        new_accounts = new_users.count() if (parsed_from or parsed_to) else total_accounts
+        total_products = Product.objects.count()
+        total_orders = orders.count()
+
+        return {
+            'type': 'platform_usage',
+            'total_accounts': total_accounts,
+            'new_accounts': new_accounts,
+            'total_products': total_products,
+            'total_orders': total_orders,
+        }
+
+    return None
+
+
+def _expand_season_range(from_season, to_season):
+    # EXPAND A CYCLICAL SEASON RANGE (E.G. AUTUMN -> SPRING) INTO ITS INCLUDED SEASONS
+    season_order = ['SPRING', 'SUMMER', 'AUTUMN', 'WINTER']
+    if from_season not in season_order or to_season not in season_order:
+        return set()
+
+    start_index = season_order.index(from_season)
+    end_index = season_order.index(to_season)
+
+    included = {from_season}
+    current_index = start_index
+    while current_index != end_index:
+        current_index = (current_index + 1) % len(season_order)
+        included.add(season_order[current_index])
+    return included
+
+
+def _season_ranges_overlap(product_from, product_to, filter_from, filter_to):
+    # OVERLAP CHECK ENSURES A PRODUCT IS SHOWN IF ANY PART OF ITS WINDOW MATCHES THE FILTER WINDOW
+    product_seasons = _expand_season_range(product_from, product_to)
+    filter_seasons = _expand_season_range(filter_from, filter_to)
+    return bool(product_seasons & filter_seasons)
+
+
 def home(request):
     # REDIRECT ADMIN USERS TO THEIR OWN DASHBOARD ON LOGIN
     if _is_admin_user(request.user):
         return redirect('admin_dashboard')
-    return render(request, 'marketplace/home.html')
+
+    producer_home_data = None
+    customer_home_data = None
+
+    if request.user.is_authenticated:
+        producer_profile = _get_logged_in_producer(request.user)
+        customer_profile = _get_logged_in_customer(request.user)
+
+        if producer_profile is not None:
+            producer_products = Product.objects.filter(producer=producer_profile)
+            recent_orders = CustomerOrder.objects.filter(
+                items__product__producer=producer_profile
+            ).select_related('customer').distinct().order_by('-created_at')[:3]
+            recent_reviews = ProductReview.objects.filter(
+                product__producer=producer_profile
+            ).select_related('customer', 'product').order_by('-created_at')[:3]
+
+            producer_home_data = {
+                'product_count': producer_products.count(),
+                'low_stock_count': producer_products.filter(stock_quantity__lte=10).count(),
+                'pending_orders_count': CustomerOrder.objects.filter(
+                    items__product__producer=producer_profile,
+                    status='PENDING'
+                ).distinct().count(),
+                'recent_orders': recent_orders,
+                'recent_reviews': recent_reviews,
+            }
+
+        if customer_profile is not None:
+            customer_orders = CustomerOrder.objects.filter(customer=customer_profile)
+            customer_home_data = {
+                'market_product_count': Product.objects.count(),
+                'basket_lines': BasketItem.objects.filter(customer=customer_profile).count(),
+                'active_recurring_count': RecurringOrder.objects.filter(
+                    customer=customer_profile,
+                    status='ACTIVE'
+                ).count(),
+                'last_order': customer_orders.order_by('-created_at').first(),
+                'recent_orders': customer_orders.order_by('-created_at')[:3],
+            }
+
+    return render(
+        request,
+        'marketplace/home.html',
+        {
+            'producer_home_data': producer_home_data,
+            'customer_home_data': customer_home_data,
+        }
+    )
 
 def signup_choice(request):
     return render(request, 'marketplace/signup_choice.html')
@@ -89,9 +225,9 @@ def _get_logged_in_customer(user):
         return None
 
 
-# =====================================================================
-# ADMIN DASHBOARD VIEW - DISPLAYS THE ADMIN HOME PAGE WITH KPI SUMMARY
-# =====================================================================
+
+# ADMIN DASHBOARD VIEW
+
 @login_required
 def admin_dashboard(request):
     # ONLY ALLOW STAFF / SUPERUSERS TO ACCESS THE ADMIN DASHBOARD
@@ -109,9 +245,9 @@ def admin_dashboard(request):
     )
 
 
-# =====================================================================
-# ADMIN PROFILES VIEW - DISPLAYS ALL PRODUCER AND CUSTOMER PROFILES
-# =====================================================================
+
+#DISPLAYS ALL PRODUCER AND CUSTOMER PROFILES
+
 @login_required
 def admin_profiles(request):
     if not _is_admin_user(request.user):
@@ -132,9 +268,9 @@ def admin_profiles(request):
     )
 
 
-# =====================================================================
-# ADMIN ORDER HISTORY VIEW - DISPLAYS ALL ORDERS ACROSS THE PLATFORM
-# =====================================================================
+
+# DISPLAYS ALL ORDERS ACROSS THE PLATFORM
+
 @login_required
 def admin_orders(request):
     if not _is_admin_user(request.user):
@@ -156,9 +292,9 @@ def admin_orders(request):
     )
 
 
-# =====================================================================
-# ADMIN REPORTS VIEW - GENERATES FINANCIAL OR PLATFORM USAGE REPORTS
-# =====================================================================
+
+# GENERATES FINANCIAL OR PLATFORM USAGE REPORTS
+
 @login_required
 def admin_reports(request):
     if not _is_admin_user(request.user):
@@ -168,75 +304,9 @@ def admin_reports(request):
     date_from = request.GET.get('date_from', '')
     date_to = request.GET.get('date_to', '')
 
-    # PARSE DATE RANGE FILTERS
-    parsed_from = None
-    parsed_to = None
-    if date_from:
-        try:
-            parsed_from = date.fromisoformat(date_from)
-        except ValueError:
-            parsed_from = None
-    if date_to:
-        try:
-            parsed_to = date.fromisoformat(date_to)
-        except ValueError:
-            parsed_to = None
-
-    report_data = None
-
-    # --- FINANCIAL REPORT ---
-    if report_type == 'financial':
-        orders = CustomerOrder.objects.all()
-
-        # APPLY DATE FILTERS ON ORDER CREATED DATE
-        if parsed_from:
-            orders = orders.filter(created_at__date__gte=parsed_from)
-        if parsed_to:
-            orders = orders.filter(created_at__date__lte=parsed_to)
-
-        total_sales = orders.aggregate(total=Sum('total_price'))['total'] or Decimal('0.00')
-        total_commission = round(total_sales * Decimal('0.05'), 2)
-        total_producer_payouts = round(total_sales * Decimal('0.95'), 2)
-        order_count = orders.count()
-        average_order_value = round(total_sales / order_count, 2) if order_count else Decimal('0.00')
-
-        report_data = {
-            'type': 'financial',
-            'total_sales': total_sales,
-            'total_commission': total_commission,
-            'total_producer_payouts': total_producer_payouts,
-            'order_count': order_count,
-            'average_order_value': average_order_value,
-        }
-
-    # --- PLATFORM USAGE REPORT ---
-    elif report_type == 'platform_usage':
-        users = User.objects.all()
-        orders = CustomerOrder.objects.all()
-
-        # APPLY DATE FILTERS
-        if parsed_from:
-            new_users = users.filter(date_joined__date__gte=parsed_from)
-            orders = orders.filter(created_at__date__gte=parsed_from)
-        else:
-            new_users = users.none()
-
-        if parsed_to:
-            new_users = (users.filter(date_joined__date__gte=parsed_from) if parsed_from else users).filter(date_joined__date__lte=parsed_to)
-            orders = orders.filter(created_at__date__lte=parsed_to)
-
-        total_accounts = users.count()
-        new_accounts = new_users.count() if (parsed_from or parsed_to) else total_accounts
-        total_products = Product.objects.count()
-        total_orders = orders.count()
-
-        report_data = {
-            'type': 'platform_usage',
-            'total_accounts': total_accounts,
-            'new_accounts': new_accounts,
-            'total_products': total_products,
-            'total_orders': total_orders,
-        }
+    parsed_from = _parse_report_date(date_from)
+    parsed_to = _parse_report_date(date_to)
+    report_data = _build_admin_report_data(report_type, parsed_from, parsed_to)
 
     return render(
         request,
@@ -316,6 +386,8 @@ def customer_market(request):
     organic_input = request.GET.get('organic', 'all').strip().lower()
     category_input = request.GET.get('category', '').strip()
     allergen_inputs = request.GET.getlist('allergens')
+    season_from_input = request.GET.get('season_from', '').strip().upper()
+    season_to_input = request.GET.get('season_to', '').strip().upper()
 
     products = Product.objects.select_related('producer').order_by('name')
 
@@ -354,6 +426,14 @@ def customer_market(request):
             allergen_query |= Q(allergens__contains=[allergen])
         products = products.exclude(allergen_query)
 
+    # APPLY SEASON AVAILABILITY FILTER USING THE SAME FROM/TO MODEL AS PRODUCERS
+    valid_seasons = [choice[0] for choice in Product.SEASON_CHOICES]
+    if season_from_input and season_to_input and season_from_input in valid_seasons and season_to_input in valid_seasons:
+        products = [
+            product for product in products
+            if _season_ranges_overlap(product.seasonal_from, product.seasonal_to, season_from_input, season_to_input)
+        ]
+
     return render(
         request,
         'marketplace/customer_market.html',
@@ -361,12 +441,15 @@ def customer_market(request):
             'products': products,
             'category_choices': Product.CATEGORY_CHOICES,
             'allergen_choices': Product.ALLERGEN_CHOICES,
+            'season_choices': Product.SEASON_CHOICES,
             'selected_filters': {
                 'min_price': min_price_input,
                 'max_price': max_price_input,
                 'organic': organic_input,
                 'category': category_input,
                 'allergens': selected_allergens,
+                'season_from': season_from_input,
+                'season_to': season_to_input,
             },
         }
     )
@@ -406,7 +489,7 @@ def producer_bio_public(request, producer_id):
     )
 
 
-# ADD TO BASKET VIEW - HANDLES A POST REQUEST TO ADD A PRODUCT TO THE CUSTOMER'S BASKET
+# ADD TO BASKET VIEW 
 @login_required
 def add_to_basket(request, product_id):
     # VERIFY THE LOGGED-IN USER IS A CUSTOMER
@@ -1306,3 +1389,73 @@ def notifications(request):
         'marketplace/notifications.html',
         {'notifications': user_notifications}
     )
+
+
+# ADMIN REPORT PDF EXPORT VIEW - GENERATES A PDF VERSION OF A SELECTED REPORT
+@login_required
+def download_admin_report_pdf(request):
+    if not _is_admin_user(request.user):
+        return redirect('home')
+
+    report_type = request.GET.get('report_type', '')
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
+
+    parsed_from = _parse_report_date(date_from)
+    parsed_to = _parse_report_date(date_to)
+    report_data = _build_admin_report_data(report_type, parsed_from, parsed_to)
+
+    if report_data is None:
+        return redirect('admin_reports')
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="admin_report_{report_type}.pdf"'
+
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+    y = height - 50
+
+    p.setFont("Helvetica-Bold", 18)
+    p.drawString(50, y, "Bristol Regional Food Network")
+    y -= 25
+    p.setFont("Helvetica", 12)
+    p.drawString(50, y, "Admin Report")
+    y -= 18
+    p.drawString(50, y, f"Type: {report_type.replace('_', ' ').title()}")
+    y -= 18
+    period_label = f"{date_from or 'beginning'} to {date_to or 'present'}" if (date_from or date_to) else "All time"
+    p.drawString(50, y, f"Period: {period_label}")
+    y -= 30
+
+    p.setFont("Helvetica-Bold", 11)
+    if report_data['type'] == 'financial':
+        p.drawString(50, y, "Total Sales")
+        p.drawString(280, y, f"£{report_data['total_sales']}")
+        y -= 20
+        p.drawString(50, y, "Commission Earned (5%)")
+        p.drawString(280, y, f"£{report_data['total_commission']}")
+        y -= 20
+        p.drawString(50, y, "Producer Payouts (95%)")
+        p.drawString(280, y, f"£{report_data['total_producer_payouts']}")
+        y -= 20
+        p.drawString(50, y, "Orders")
+        p.drawString(280, y, f"{report_data['order_count']}")
+        y -= 20
+        p.drawString(50, y, "Average Order Value")
+        p.drawString(280, y, f"£{report_data['average_order_value']}")
+    else:
+        p.drawString(50, y, "Total Accounts")
+        p.drawString(280, y, f"{report_data['total_accounts']}")
+        y -= 20
+        p.drawString(50, y, "New Accounts (in period)")
+        p.drawString(280, y, f"{report_data['new_accounts']}")
+        y -= 20
+        p.drawString(50, y, "Products Listed")
+        p.drawString(280, y, f"{report_data['total_products']}")
+        y -= 20
+        p.drawString(50, y, "Orders Placed")
+        p.drawString(280, y, f"{report_data['total_orders']}")
+
+    p.showPage()
+    p.save()
+    return response

@@ -103,6 +103,9 @@
                                     No
                                 {% endif %}
                             </p>
+                            <p class="producer-product-meta">
+                                <strong>Seasonal Availability:</strong> {{ product.get_seasonal_from_display }} to {{ product.get_seasonal_to_display }}
+                            </p>
                             <p class="producer-product-description">{{ product.description }}</p>
 
                             {% if product.allergens %}

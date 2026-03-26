@@ -42,6 +42,15 @@
     <!-- REPORT RESULTS -->
     {% if report_data %}
 
+        <section class="admin-panel">
+            <a
+                href="{% url 'download_admin_report_pdf' %}?report_type={{ report_type }}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}"
+                class="admin-report-btn"
+            >
+                Export Report (PDF)
+            </a>
+        </section>
+
         {% if report_data.type == 'financial' %}
         <!-- FINANCIAL REPORT -->
         <section class="admin-panel">
