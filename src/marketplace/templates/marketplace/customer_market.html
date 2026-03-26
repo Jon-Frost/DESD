@@ -186,6 +186,14 @@
                     <p class="producer-product-meta">
                         <strong>Address:</strong> {{ product.producer.business_address }}, {{ product.producer.postcode }}
                     </p>
+                    <p class="producer-product-meta">
+                        <strong>Food Miles:</strong>
+                        {% if product.food_miles is not None %}
+                            {{ product.food_miles }} miles
+                        {% else %}
+                            Not available
+                        {% endif %}
+                    </p>
                     <p class="producer-product-description">{{ product.description }}</p>
 
                     {% if product.allergens %}

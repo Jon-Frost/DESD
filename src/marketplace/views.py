@@ -11,6 +11,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from django.http import HttpResponse
 from datetime import date, timedelta
+import math
 
 try:
     import stripe
@@ -444,6 +445,63 @@ def delete_product(request, product_id):
 
     return redirect('add_product')
 
+# APPROXIMATE POSTCODE COORDINATES USED TO ESTIMATE FOOD MILES IN THE DEMO SYSTEM
+# KEY = NORMALISED POSTCODE (UPPERCASE, NO SPACES)
+POSTCODE_COORDINATES = {
+    'BS16QF': (51.4545, -2.5879),   # Bristol city centre / sample Bristol area
+    'BS82NH': (51.4626, -2.6036),
+    'BA11AA': (51.3813, -2.3590),   # Bath
+    'GL13NN': (51.8642, -2.2382),   # Gloucester
+    'TA13NW': (51.0153, -3.1029),   # Taunton
+    'SN14AB': (51.5584, -1.7800),   # Swindon
+    'CF101EP': (51.4816, -3.1791),  # Cardiff
+}
+
+
+def _normalise_postcode(postcode):
+    if not postcode:
+        return ''
+    return postcode.replace(' ', '').upper().strip()
+
+
+def _get_postcode_coordinates(postcode):
+    normalised = _normalise_postcode(postcode)
+    return POSTCODE_COORDINATES.get(normalised)
+
+
+def _calculate_distance_miles(lat1, lon1, lat2, lon2):
+    earth_radius_miles = 3958.8
+
+    lat1_rad = math.radians(lat1)
+    lon1_rad = math.radians(lon1)
+    lat2_rad = math.radians(lat2)
+    lon2_rad = math.radians(lon2)
+
+    delta_lat = lat2_rad - lat1_rad
+    delta_lon = lon2_rad - lon1_rad
+
+    a = (
+        math.sin(delta_lat / 2) ** 2
+        + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon / 2) ** 2
+    )
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+    return round(earth_radius_miles * c, 1)
+
+
+def _estimate_food_miles(customer_postcode, producer_postcode):
+    customer_coords = _get_postcode_coordinates(customer_postcode)
+    producer_coords = _get_postcode_coordinates(producer_postcode)
+
+    if not customer_coords or not producer_coords:
+        return None
+
+    return _calculate_distance_miles(
+        customer_coords[0],
+        customer_coords[1],
+        producer_coords[0],
+        producer_coords[1],
+    )
 
 @login_required
 def customer_market(request):
@@ -459,7 +517,6 @@ def customer_market(request):
     allergen_inputs = request.GET.getlist('allergens')
     season_from_input = request.GET.get('season_from', '').strip().upper()
     season_to_input = request.GET.get('season_to', '').strip().upper()
-    search_input = request.GET.get('search', '').strip()
 
     products = Product.objects.select_related('producer').order_by('name')
 
@@ -519,6 +576,14 @@ def customer_market(request):
             )
         ]
 
+    # ATTACH ESTIMATED FOOD MILES FROM CUSTOMER TO PRODUCER FOR DISPLAY IN THE MARKET
+    products = list(products)
+    for product in products:
+        product.food_miles = _estimate_food_miles(
+            customer_profile.postcode,
+            product.producer.postcode
+        )
+
     return render(
         request,
         'marketplace/customer_market.html',
@@ -536,10 +601,11 @@ def customer_market(request):
                 'allergens': selected_allergens,
                 'season_from': season_from_input,
                 'season_to': season_to_input,
-                'search': search_input,
             },
         }
     )
+
+
 @login_required
 def producer_bio(request):
     producer_profile = _get_logged_in_producer(request.user)
