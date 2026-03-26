@@ -8,24 +8,22 @@
     <p class="auth-subtitle">Browse all listings from producers across the network.</p>
 
 
-    
-
     <!-- MARKET FILTER FORM - USES GET SO FILTERS ARE VISIBLE IN THE URL -->
     <div class="producer-panel market-filter-panel">
         <form method="get" action="{% url 'customer_market' %}" class="market-filter-form">
-            <div class="market-filter-field market-search-field">
-                <label class="auth-label" for="q">Search products</label>
+            <!-- PRODUCT NAME SEARCH FILTER -->
+            <div class="market-filter-field market-filter-field--full">
+                <label class="auth-label" for="search">Search by Product Name</label>
                 <input
-                     class="auth-field"
-                     type="text"
-                     name="q"
-                     id="q"
-                    value="{{ selected_filters.q }}"
-                    placeholder="Search by product, description, category, or producer"
+                    class="auth-field"
+                    type="text"
+                    name="search"
+                    id="search"
+                    value="{{ selected_filters.search }}"
+                    placeholder="e.g. tomatoes"
                 >
             </div>
-            
-            
+
             <!-- MINIMUM PRICE FILTER -->
             <div class="market-filter-field">
                 <label class="auth-label" for="min_price">Min Price (£)</label>
@@ -185,14 +183,6 @@
                     </p>
                     <p class="producer-product-meta">
                         <strong>Address:</strong> {{ product.producer.business_address }}, {{ product.producer.postcode }}
-                    </p>
-                    <p class="producer-product-meta">
-                        <strong>Food Miles:</strong>
-                        {% if product.food_miles is not None %}
-                            {{ product.food_miles }} miles
-                        {% else %}
-                            Not available
-                        {% endif %}
                     </p>
                     <p class="producer-product-description">{{ product.description }}</p>
 

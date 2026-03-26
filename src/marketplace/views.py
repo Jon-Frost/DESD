@@ -11,7 +11,6 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from django.http import HttpResponse
 from datetime import date, timedelta
-import math
 
 try:
     import stripe
@@ -445,63 +444,6 @@ def delete_product(request, product_id):
 
     return redirect('add_product')
 
-# APPROXIMATE POSTCODE COORDINATES USED TO ESTIMATE FOOD MILES IN THE DEMO SYSTEM
-# KEY = NORMALISED POSTCODE (UPPERCASE, NO SPACES)
-POSTCODE_COORDINATES = {
-    'BS16QF': (51.4545, -2.5879),   # Bristol city centre / sample Bristol area
-    'BS82NH': (51.4626, -2.6036),
-    'BA11AA': (51.3813, -2.3590),   # Bath
-    'GL13NN': (51.8642, -2.2382),   # Gloucester
-    'TA13NW': (51.0153, -3.1029),   # Taunton
-    'SN14AB': (51.5584, -1.7800),   # Swindon
-    'CF101EP': (51.4816, -3.1791),  # Cardiff
-}
-
-
-def _normalise_postcode(postcode):
-    if not postcode:
-        return ''
-    return postcode.replace(' ', '').upper().strip()
-
-
-def _get_postcode_coordinates(postcode):
-    normalised = _normalise_postcode(postcode)
-    return POSTCODE_COORDINATES.get(normalised)
-
-
-def _calculate_distance_miles(lat1, lon1, lat2, lon2):
-    earth_radius_miles = 3958.8
-
-    lat1_rad = math.radians(lat1)
-    lon1_rad = math.radians(lon1)
-    lat2_rad = math.radians(lat2)
-    lon2_rad = math.radians(lon2)
-
-    delta_lat = lat2_rad - lat1_rad
-    delta_lon = lon2_rad - lon1_rad
-
-    a = (
-        math.sin(delta_lat / 2) ** 2
-        + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon / 2) ** 2
-    )
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
-    return round(earth_radius_miles * c, 1)
-
-
-def _estimate_food_miles(customer_postcode, producer_postcode):
-    customer_coords = _get_postcode_coordinates(customer_postcode)
-    producer_coords = _get_postcode_coordinates(producer_postcode)
-
-    if not customer_coords or not producer_coords:
-        return None
-
-    return _calculate_distance_miles(
-        customer_coords[0],
-        customer_coords[1],
-        producer_coords[0],
-        producer_coords[1],
-    )
 
 @login_required
 def customer_market(request):
@@ -509,7 +451,8 @@ def customer_market(request):
     if customer_profile is None:
         return redirect('home')
 
-    search_query = request.GET.get('q', '').strip()
+    # MARKET FILTER INPUTS FROM QUERY STRING
+    search_input = request.GET.get('search', '').strip()
     min_price_input = request.GET.get('min_price', '').strip()
     max_price_input = request.GET.get('max_price', '').strip()
     organic_input = request.GET.get('organic', 'all').strip().lower()
@@ -520,15 +463,11 @@ def customer_market(request):
 
     products = Product.objects.select_related('producer').order_by('name')
 
-    if search_query:
-        products = products.filter(
-            Q(name__icontains=search_query) |
-            Q(description__icontains=search_query) |
-            Q(category__icontains=search_query) |
-            Q(producer__business_name__icontains=search_query) |
-            Q(producer__contact_name__icontains=search_query)
-        )
+    # APPLY CASE-INSENSITIVE NAME SEARCH WHEN A SEARCH TERM IS PROVIDED
+    if search_input:
+        products = products.filter(name__icontains=search_input)
 
+    # APPLY MIN/MAX PRICE FILTERS WHEN VALUES ARE VALID DECIMALS
     if min_price_input:
         try:
             min_price = Decimal(min_price_input)
@@ -543,15 +482,18 @@ def customer_market(request):
         except (InvalidOperation, ValueError):
             messages.error(request, 'Invalid maximum price filter value.')
 
+    # APPLY ORGANIC STATUS FILTER
     if organic_input == 'true':
         products = products.filter(is_organic=True)
     elif organic_input == 'false':
         products = products.filter(is_organic=False)
 
+    # APPLY CATEGORY FILTER ONLY WHEN IT MATCHES A VALID CATEGORY KEY
     valid_categories = {choice[0] for choice in Product.CATEGORY_CHOICES}
     if category_input in valid_categories:
         products = products.filter(category=category_input)
 
+    # APPLY ALLERGEN FILTER IN REVERSE - REMOVE PRODUCTS CONTAINING ANY SELECTED ALLERGEN
     valid_allergens = {choice[0] for choice in Product.ALLERGEN_CHOICES}
     selected_allergens = [allergen for allergen in allergen_inputs if allergen in valid_allergens]
     if selected_allergens:
@@ -559,9 +501,6 @@ def customer_market(request):
         for allergen in selected_allergens:
             allergen_query |= Q(allergens__contains=[allergen])
         products = products.exclude(allergen_query)
-
-    print("SEARCH QUERY:", search_query)
-    print("PRODUCT COUNT:", products.count())
 
     # APPLY SEASON AVAILABILITY FILTER USING THE SAME FROM/TO MODEL AS PRODUCERS
     valid_seasons = [choice[0] for choice in Product.SEASON_CHOICES]
@@ -576,14 +515,6 @@ def customer_market(request):
             )
         ]
 
-    # ATTACH ESTIMATED FOOD MILES FROM CUSTOMER TO PRODUCER FOR DISPLAY IN THE MARKET
-    products = list(products)
-    for product in products:
-        product.food_miles = _estimate_food_miles(
-            customer_profile.postcode,
-            product.producer.postcode
-        )
-
     return render(
         request,
         'marketplace/customer_market.html',
@@ -593,7 +524,7 @@ def customer_market(request):
             'allergen_choices': Product.ALLERGEN_CHOICES,
             'season_choices': Product.SEASON_CHOICES,
             'selected_filters': {
-                'q': search_query,
+                'search': search_input,
                 'min_price': min_price_input,
                 'max_price': max_price_input,
                 'organic': organic_input,

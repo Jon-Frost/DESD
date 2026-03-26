@@ -1465,19 +1465,3 @@ a.admin-quick-link:hover {
 .admin-report-btn:hover {
     background: #0d47a1;
 }
-
-.market-search-field {
-    grid-column: 1 / -1;
-}
-
-.market-filter-actions {
-    display: flex;
-    gap: 12px;
-    margin-top: 12px;
-    align-items: center;
-}
-.market-filter-form {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 20px;
-}
