@@ -15,7 +15,7 @@ services:
 
   web:
     build: .
-    command: python src/manage.py runserver 0.0.0.0:8000
+    command: sh -c "python src/manage.py migrate --noinput && python src/manage.py runserver 0.0.0.0:8000"
     volumes:
       - .:/src
     ports:

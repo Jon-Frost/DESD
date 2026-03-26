@@ -47,6 +47,14 @@ class Product(models.Model):
         ('BAKERY', 'Bakery'),
     ]
 
+    # SEASON CHOICES USED FOR PRODUCER AVAILABILITY WINDOWS AND CUSTOMER FILTERING
+    SEASON_CHOICES = [
+        ('SPRING', 'Spring'),
+        ('SUMMER', 'Summer'),
+        ('AUTUMN', 'Autumn'),
+        ('WINTER', 'Winter'),
+    ]
+
     # UK MAJOR ALLERGEN CHOICES USED FOR PRODUCER CHECKBOX INPUTS AND CUSTOMER FILTERING
     ALLERGEN_CHOICES = [
         ('CELERY', 'Celery'),
@@ -66,6 +74,8 @@ class Product(models.Model):
     ]
 
     category = models.CharField(max_length=10, choices=CATEGORY_CHOICES)
+    seasonal_from = models.CharField(max_length=10, choices=SEASON_CHOICES, default='SPRING')
+    seasonal_to = models.CharField(max_length=10, choices=SEASON_CHOICES, default='WINTER')
 
     def __str__(self):
         return f"{self.name} - {self.producer.business_name}"

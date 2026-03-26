@@ -79,6 +79,31 @@
                 </select>
             </div>
 
+            <!-- SEASON AVAILABILITY RANGE FILTER -->
+            <div class="market-filter-field">
+                <label class="auth-label" for="season_from">Season From</label>
+                <select class="auth-field" name="season_from" id="season_from">
+                    <option value="">Any</option>
+                    {% for season_code, season_label in season_choices %}
+                        <option value="{{ season_code }}" {% if selected_filters.season_from == season_code %}selected{% endif %}>
+                            {{ season_label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="market-filter-field">
+                <label class="auth-label" for="season_to">Season To</label>
+                <select class="auth-field" name="season_to" id="season_to">
+                    <option value="">Any</option>
+                    {% for season_code, season_label in season_choices %}
+                        <option value="{{ season_code }}" {% if selected_filters.season_to == season_code %}selected{% endif %}>
+                            {{ season_label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
             <!-- ALLERGEN FILTERS - SELECT ONE AT A TIME, REOPEN TO ADD MORE EXCLUDED ALLERGENS -->
             <div class="market-filter-field market-filter-field--full">
                 <label class="auth-label" for="allergen-picker">Exclude Allergens</label>
@@ -150,6 +175,9 @@
                         {% else %}
                             No
                         {% endif %}
+                    </p>
+                    <p class="producer-product-meta">
+                        <strong>Seasonal Availability:</strong> {{ product.get_seasonal_from_display }} to {{ product.get_seasonal_to_display }}
                     </p>
                     <p class="producer-product-meta">
                         <strong>Producer:</strong>

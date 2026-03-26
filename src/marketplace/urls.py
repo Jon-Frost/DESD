@@ -8,6 +8,7 @@ urlpatterns = [
     path('dashboard/profiles/', views.admin_profiles, name='admin_profiles'),
     path('dashboard/orders/', views.admin_orders, name='admin_orders'),
     path('dashboard/reports/', views.admin_reports, name='admin_reports'),
+    path('dashboard/reports/export/pdf/', views.download_admin_report_pdf, name='download_admin_report_pdf'),
     path('signup/', views.signup_choice, name='signup_choice'),
     path('signup/producer/', views.signup_producer, name='signup_producer'),
     path('signup/customer/', views.signup_customer, name='signup_customer'),

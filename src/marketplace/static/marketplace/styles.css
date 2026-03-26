@@ -416,6 +416,76 @@ body {
     margin: 0 0 10px;
 }
 
+/* --- HOME DASHBOARD STYLES --- */
+
+.home-page {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.home-hero,
+.home-panel {
+    background: #ffffff;
+    border: 1px solid #c8e6c9;
+    border-radius: 8px;
+    padding: 18px;
+}
+
+.home-hero h1,
+.home-panel h2 {
+    margin-top: 0;
+    color: #1b5e20;
+}
+
+.home-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 12px;
+    margin-top: 10px;
+}
+
+.home-kpi-card {
+    background: #f4faf4;
+    border: 1px solid #d8ead9;
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.home-kpi-label {
+    margin: 0;
+    color: #2f5f34;
+    font-size: 0.9rem;
+}
+
+.home-kpi-value {
+    margin: 6px 0 0;
+    color: #1b5e20;
+    font-size: 1.4rem;
+    font-weight: bold;
+}
+
+.home-quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.home-list {
+    margin: 10px 0 0;
+    padding-left: 18px;
+}
+
+.home-list li {
+    margin-bottom: 6px;
+}
+
+.home-muted {
+    color: #666;
+    font-style: italic;
+}
+
 .producer-product-description,
 .producer-product-allergens {
     color: #444;
