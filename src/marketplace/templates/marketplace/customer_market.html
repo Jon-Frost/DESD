@@ -156,7 +156,17 @@
                 <article class="producer-product-card">
                     <div class="producer-product-header">
                         <h3>{{ product.name }}</h3>
-                        <span class="producer-product-price">£{{ product.price }} / {{ product.unit }}</span>
+{% if product.is_surplus and product.discount_percent > 0 %}
+    <span class="producer-product-price">
+        <span class="old-price">£{{ product.price }}</span>
+        <span class="discounted-price">£{{ product.discounted_price|floatformat:2 }}</span> / {{ product.unit }}
+    </span>
+    <p class="producer-product-meta">
+        <strong>Surplus Offer:</strong> {{ product.discount_percent }}% off to reduce food waste
+    </p>
+{% else %}
+    <span class="producer-product-price">£{{ product.price }} / {{ product.unit }}</span>
+{% endif %}
                     </div>
 
                     <p class="producer-product-meta">

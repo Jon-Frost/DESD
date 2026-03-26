@@ -1465,3 +1465,41 @@ a.admin-quick-link:hover {
 .admin-report-btn:hover {
     background: #0d47a1;
 }
+
+.market-search-field {
+    grid-column: 1 / -1;
+}
+
+.market-filter-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+    align-items: center;
+}
+.market-filter-form {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+}
+
+.surplus-badge {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #dff5d8;
+    color: #256029;
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+
+.old-price {
+    text-decoration: line-through;
+    color: #777;
+    margin-right: 8px;
+}
+
+.discounted-price {
+    color: #c62828;
+    font-weight: 700;
+}
