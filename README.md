@@ -27,7 +27,6 @@ docker compose up --build
 docker compose exec web python src/manage.py makemigrations
 docker compose exec web python src/manage.py migrate
 
-
 # BRFN
 
 The Bristol Regional Food Network (BRFN) is in need of an online marketplace to connect local producers and customers in the Bristol area. This system removes the hastle of individuale sales and provides a comprehensive marketplace service improving the food network's growth and efficiency.
@@ -44,8 +43,8 @@ The Bristol Regional Food Network (BRFN) is in need of an online marketplace to 
 1. TC-001 - Passed
 2. TC-002 - Passed
 3. TC-003 - Passed
-4. TC-004 -
-5. TC-005 -
+4. TC-004 - Passed
+5. TC-005 - Passed
 6. TC-006 - Passed
 7. TC-007 - Passed
 8. TC-008 - Passed
@@ -57,7 +56,7 @@ The Bristol Regional Food Network (BRFN) is in need of an online marketplace to 
 14. TC-014 - Passed
 15. TC-015 - Passed
 16. TC-016 -
-17. TC-017 -
+17. TC-017 - Passed
 18. TC-018 -
 19. TC-019 -
 20. TC-020 -

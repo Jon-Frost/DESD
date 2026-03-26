@@ -35,6 +35,12 @@
             <strong>Card:</strong> **** **** **** {{ order.card_number_last4 }}
         </p>
 
+        {% if stripe_enabled %}
+            <p class="producer-product-meta stripe-confirmation-line">
+                <strong>Payment:</strong> Processed via Stripe{% if stripe_test_mode %} (Test Mode){% endif %}
+            </p>
+        {% endif %}
+
         <!-- TABLE OF ITEMS INCLUDED IN THE ORDER -->
         <h3 class="basket-checkout-title">Items Ordered</h3>
         <table class="basket-table">

@@ -2,6 +2,7 @@
 # THIS ALLOWS THE BASKET ICON IN THE TOP BAR TO DISPLAY THE CURRENT COUNT GLOBALLY
 
 from .models import BasketItem
+from django.conf import settings
 
 
 def basket_count(request):
@@ -33,10 +34,16 @@ def basket_count(request):
         # UNAUTHENTICATED USERS HAVE NO BASKET
         count = 0
 
-    # RETURN THE COUNT SO IT IS AVAILABLE AS {{ basket_count }} IN ALL TEMPLATES
+    stripe_publishable_key = getattr(settings, 'STRIPE_PUBLISHABLE_KEY', '')
+    stripe_enabled = bool(stripe_publishable_key)
+    stripe_test_mode = stripe_publishable_key.startswith('pk_test_')
+
+    # RETURN SHARED CONTEXT VALUES FOR NAVIGATION + PAYMENT BADGING
     return {
         'basket_count': count,
         'is_customer': is_customer,
         'is_producer': is_producer,
         'is_admin': is_admin,
+        'stripe_enabled': stripe_enabled,
+        'stripe_test_mode': stripe_test_mode,
     }

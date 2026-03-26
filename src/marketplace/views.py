@@ -1,6 +1,7 @@
 from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.conf import settings
 from decimal import Decimal, InvalidOperation
 from django.db.models import Q, Sum
 from django.contrib.auth.models import User
@@ -10,6 +11,11 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from django.http import HttpResponse
 from datetime import date, timedelta
+
+try:
+    import stripe
+except ImportError:
+    stripe = None
 
 
 # ADMIN ROLE CHECK - RETURNS TRUE IF THE USER IS A STAFF OR SUPERUSER
@@ -103,6 +109,71 @@ def _season_ranges_overlap(product_from, product_to, filter_from, filter_to):
     product_seasons = _expand_season_range(product_from, product_to)
     filter_seasons = _expand_season_range(filter_from, filter_to)
     return bool(product_seasons & filter_seasons)
+
+
+def _create_customer_order_from_basket(customer_profile, basket_items, form_cleaned_data):
+    # CREATE ORDER AND CHILD ORDER ITEMS FROM CURRENT BASKET SNAPSHOT
+    total = sum(item.product.price * item.quantity for item in basket_items)
+
+    order = CustomerOrder.objects.create(
+        customer=customer_profile,
+        delivery_address=form_cleaned_data['delivery_address'],
+        preferred_delivery_date=form_cleaned_data['preferred_delivery_date'],
+        card_holder_name=form_cleaned_data.get('card_holder_name') or 'Stripe Checkout',
+        card_number_last4=(form_cleaned_data.get('card_number', '')[-4:] or '4242'),
+        total_price=total,
+    )
+
+    for item in basket_items:
+        OrderItem.objects.create(
+            order=order,
+            product=item.product,
+            quantity=item.quantity,
+            unit_price=item.product.price,
+        )
+
+        item.product.stock_quantity -= item.quantity
+        item.product.save()
+
+        Notification.objects.create(
+            user=item.product.producer.user,
+            message=f'New order #{order.id} received for {item.quantity}x {item.product.name} from {order.customer.name}. Delivery: {order.preferred_delivery_date}.'
+        )
+
+        if item.product.stock_quantity <= item.product.low_stock_threshold:
+            Notification.objects.create(
+                user=item.product.producer.user,
+                message=f'Low stock alert: {item.product.name} only has {item.product.stock_quantity} units remaining.'
+            )
+
+    basket_items.delete()
+    return order
+
+
+def _create_recurring_order_if_requested(request, customer_profile, order):
+    # CREATE RECURRING ORDER USING THE CONFIRMED ORDER ITEMS WHEN SESSION DATA EXISTS
+    if 'recurring_order_data' not in request.session:
+        return
+
+    recurring_data = request.session.pop('recurring_order_data')
+    recurring_order = RecurringOrder.objects.create(
+        customer=customer_profile,
+        frequency=recurring_data['frequency'],
+        delivery_address=recurring_data['delivery_address'],
+        next_order_date=date.fromisoformat(recurring_data['next_order_date']),
+    )
+
+    for order_item in order.items.all():
+        RecurringOrderItem.objects.create(
+            recurring_order=recurring_order,
+            product=order_item.product,
+            quantity=order_item.quantity,
+        )
+
+    messages.success(
+        request,
+        f'Recurring {recurring_data["frequency"].lower()} order created successfully!'
+    )
 
 
 def home(request):
@@ -388,6 +459,7 @@ def customer_market(request):
     allergen_inputs = request.GET.getlist('allergens')
     season_from_input = request.GET.get('season_from', '').strip().upper()
     season_to_input = request.GET.get('season_to', '').strip().upper()
+    search_input = request.GET.get('search', '').strip()
 
     products = Product.objects.select_related('producer').order_by('name')
 
@@ -464,6 +536,7 @@ def customer_market(request):
                 'allergens': selected_allergens,
                 'season_from': season_from_input,
                 'season_to': season_to_input,
+                'search': search_input,
             },
         }
     )
@@ -634,74 +707,50 @@ def checkout(request):
                     )
                     return redirect('view_basket')
 
-            # CALCULATE THE TOTAL ORDER VALUE USING THE CURRENT PRODUCT PRICES
             total = sum(item.product.price * item.quantity for item in basket_items)
 
-            # CREATE THE PARENT ORDER RECORD IN THE CUSTOMER_ORDERS TABLE
-            order = CustomerOrder.objects.create(
-                customer=customer_profile,
-                delivery_address=form.cleaned_data['delivery_address'],
-                preferred_delivery_date=form.cleaned_data['preferred_delivery_date'],
-                card_holder_name=form.cleaned_data['card_holder_name'],
-                # ONLY STORE THE LAST 4 DIGITS OF THE CARD NUMBER FOR SECURITY
-                card_number_last4=form.cleaned_data['card_number'][-4:],
-                total_price=total,
-            )
+            stripe_secret_key = getattr(settings, 'STRIPE_SECRET_KEY', '')
+            stripe_publishable_key = getattr(settings, 'STRIPE_PUBLISHABLE_KEY', '')
+            use_stripe_checkout = bool(stripe and stripe_secret_key and stripe_publishable_key)
 
-            # CREATE AN ORDER ITEM RECORD FOR EACH PRODUCT AND REDUCE THE STOCK
-            for item in basket_items:
-                # SAVE A SNAPSHOT OF THE UNIT PRICE AT THE TIME OF PURCHASE
-                OrderItem.objects.create(
-                    order=order,
-                    product=item.product,
-                    quantity=item.quantity,
-                    unit_price=item.product.price,
-                )
-
-                # DEDUCT THE ORDERED QUANTITY FROM THE PRODUCT'S REMAINING STOCK
-                item.product.stock_quantity -= item.quantity
-                item.product.save()
-
-                # NOTIFY THE PRODUCER OF THE NEW ORDER
-                Notification.objects.create(
-                    user=item.product.producer.user,
-                    message=f'New order #{order.id} received for {item.quantity}x {item.product.name} from {order.customer.name}. Delivery: {order.preferred_delivery_date}.'
-                )
-
-                # NOTIFY PRODUCER IF STOCK IS NOW LOW
-                if item.product.stock_quantity <= item.product.low_stock_threshold:
-                    Notification.objects.create(
-                        user=item.product.producer.user,
-                        message=f'Low stock alert: {item.product.name} only has {item.product.stock_quantity} units remaining.'
+            if use_stripe_checkout:
+                # CREATE STRIPE TEST SESSION AND FINALIZE ORDER ONLY AFTER SUCCESS CALLBACK
+                stripe.api_key = stripe_secret_key
+                try:
+                    checkout_session = stripe.checkout.Session.create(
+                        mode='payment',
+                        payment_method_types=['card'],
+                        line_items=[
+                            {
+                                'price_data': {
+                                    'currency': 'gbp',
+                                    'product_data': {
+                                        'name': 'BRFN Basket Order',
+                                    },
+                                    'unit_amount': int(total * 100),
+                                },
+                                'quantity': 1,
+                            }
+                        ],
+                        success_url=request.build_absolute_uri('/orders/checkout/stripe/success/') + '?session_id={CHECKOUT_SESSION_ID}',
+                        cancel_url=request.build_absolute_uri('/basket/'),
                     )
+                except Exception:
+                    messages.error(request, 'Stripe checkout could not be started. Please try again.')
+                    return redirect('view_basket')
 
-            # CLEAR THE CUSTOMER'S BASKET NOW THAT THE ORDER HAS BEEN CONFIRMED
-            basket_items.delete()
+                request.session['pending_checkout_data'] = {
+                    'delivery_address': form.cleaned_data['delivery_address'],
+                    'preferred_delivery_date': form.cleaned_data['preferred_delivery_date'].isoformat(),
+                    'card_holder_name': form.cleaned_data['card_holder_name'],
+                    'card_number_last4': form.cleaned_data['card_number'][-4:],
+                    'customer_id': customer_profile.id,
+                }
+                return redirect(checkout_session.url)
 
-            # CREATE RECURRING ORDER IF ONE WAS SET UP IN THE SETUP PAGE
-            if 'recurring_order_data' in request.session:
-                recurring_data = request.session.pop('recurring_order_data')
-                recurring_order = RecurringOrder.objects.create(
-                    customer=customer_profile,
-                    frequency=recurring_data['frequency'],
-                    delivery_address=recurring_data['delivery_address'],
-                    next_order_date=date.fromisoformat(recurring_data['next_order_date']),
-                )
-                
-                # ADD ALL THE PRODUCTS FROM THIS ORDER TO THE RECURRING ORDER
-                for order_item in order.items.all():
-                    RecurringOrderItem.objects.create(
-                        recurring_order=recurring_order,
-                        product=order_item.product,
-                        quantity=order_item.quantity,
-                    )
-                
-                messages.success(
-                    request,
-                    f'Recurring {recurring_data["frequency"].lower()} order created successfully!'
-                )
-
-            # REDIRECT TO THE ORDER CONFIRMATION PAGE
+            # NON-STRIPE FALLBACK: COMPLETE ORDER IMMEDIATELY USING CURRENT FLOW
+            order = _create_customer_order_from_basket(customer_profile, basket_items, form.cleaned_data)
+            _create_recurring_order_if_requested(request, customer_profile, order)
             return redirect('order_confirmation', order_id=order.id)
 
         else:
@@ -719,6 +768,66 @@ def checkout(request):
             )
 
     return redirect('view_basket')
+
+
+@login_required
+def stripe_checkout_success(request):
+    # FINALIZE ORDER ONLY IF STRIPE SESSION IS PRESENT AND PAID
+    customer_profile = _get_logged_in_customer(request.user)
+    if customer_profile is None:
+        return redirect('home')
+
+    session_id = request.GET.get('session_id', '')
+    pending_data = request.session.get('pending_checkout_data')
+    if not session_id or not pending_data:
+        messages.error(request, 'Checkout session not found. Please try again.')
+        return redirect('view_basket')
+
+    if pending_data.get('customer_id') != customer_profile.id:
+        messages.error(request, 'Checkout session does not belong to this customer.')
+        return redirect('view_basket')
+
+    stripe_secret_key = getattr(settings, 'STRIPE_SECRET_KEY', '')
+    if not stripe or not stripe_secret_key:
+        messages.error(request, 'Stripe is not configured in this environment.')
+        return redirect('view_basket')
+
+    stripe.api_key = stripe_secret_key
+    try:
+        checkout_session = stripe.checkout.Session.retrieve(session_id)
+    except Exception:
+        messages.error(request, 'Could not verify Stripe checkout session.')
+        return redirect('view_basket')
+
+    if checkout_session.payment_status != 'paid':
+        messages.error(request, 'Payment was not completed. Please try again.')
+        return redirect('view_basket')
+
+    basket_items = BasketItem.objects.filter(customer=customer_profile).select_related('product')
+    if not basket_items.exists():
+        messages.error(request, 'Your basket is empty. Nothing to confirm.')
+        return redirect('view_basket')
+
+    for item in basket_items:
+        if item.quantity > item.product.stock_quantity:
+            messages.error(
+                request,
+                f'Sorry, "{item.product.name}" now only has {item.product.stock_quantity} unit(s) in stock. Please update your basket.'
+            )
+            return redirect('view_basket')
+
+    order_data = {
+        'delivery_address': pending_data['delivery_address'],
+        'preferred_delivery_date': date.fromisoformat(pending_data['preferred_delivery_date']),
+        'card_holder_name': pending_data.get('card_holder_name') or 'Stripe Checkout',
+        'card_number': pending_data.get('card_number_last4') or '4242',
+    }
+
+    order = _create_customer_order_from_basket(customer_profile, basket_items, order_data)
+    _create_recurring_order_if_requested(request, customer_profile, order)
+
+    request.session.pop('pending_checkout_data', None)
+    return redirect('order_confirmation', order_id=order.id)
 
 
 # ORDER CONFIRMATION VIEW - DISPLAYS A SUMMARY OF THE COMPLETED ORDER

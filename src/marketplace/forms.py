@@ -130,6 +130,7 @@ class CheckoutForm(forms.Form):
     # CARD HOLDER NAME AS IT APPEARS ON THE CARD
     card_holder_name = forms.CharField(
         max_length=100,
+        required=False,
         widget=forms.TextInput(attrs={'class': 'auth-field', 'placeholder': 'Name on card'}),
         label='Card Holder Name',
     )
@@ -137,6 +138,7 @@ class CheckoutForm(forms.Form):
     # FULL CARD NUMBER - ONLY THE LAST 4 DIGITS WILL BE SAVED TO THE DATABASE
     card_number = forms.CharField(
         max_length=19,
+        required=False,
         widget=forms.TextInput(attrs={'class': 'auth-field', 'placeholder': '1234 5678 9012 3456', 'autocomplete': 'off'}),
         label='Card Number',
     )
@@ -144,6 +146,7 @@ class CheckoutForm(forms.Form):
     # CARD EXPIRY DATE IN MM/YY FORMAT
     card_expiry = forms.CharField(
         max_length=5,
+        required=False,
         widget=forms.TextInput(attrs={'class': 'auth-field', 'placeholder': 'MM/YY'}),
         label='Expiry Date',
     )
@@ -151,13 +154,16 @@ class CheckoutForm(forms.Form):
     # CVV SECURITY CODE - NEVER STORED, ONLY USED FOR VALIDATION DISPLAY
     card_cvv = forms.CharField(
         max_length=4,
+        required=False,
         widget=forms.TextInput(attrs={'class': 'auth-field', 'placeholder': '123', 'autocomplete': 'off'}),
         label='CVV',
     )
 
     def clean_card_number(self):
         # STRIP SPACES AND VALIDATE THAT THE CARD NUMBER IS NUMERIC AND 16 DIGITS
-        number = self.cleaned_data['card_number'].replace(' ', '').replace('-', '')
+        number = self.cleaned_data.get('card_number', '').replace(' ', '').replace('-', '')
+        if not number:
+            return ''
         if not number.isdigit() or len(number) != 16:
             raise forms.ValidationError('Please enter a valid 16-digit card number.')
         return number
@@ -171,7 +177,9 @@ class CheckoutForm(forms.Form):
 
     def clean_card_expiry(self):
         # VALIDATE EXPIRY FORMAT IS MM/YY
-        expiry = self.cleaned_data['card_expiry']
+        expiry = self.cleaned_data.get('card_expiry', '')
+        if not expiry:
+            return ''
         if len(expiry) != 5 or expiry[2] != '/' or not expiry[:2].isdigit() or not expiry[3:].isdigit():
             raise forms.ValidationError('Please enter expiry in MM/YY format.')
         return expiry
