@@ -452,6 +452,7 @@ def customer_market(request):
         return redirect('home')
 
     # MARKET FILTER INPUTS FROM QUERY STRING
+    search_input = request.GET.get('search', '').strip()
     min_price_input = request.GET.get('min_price', '').strip()
     max_price_input = request.GET.get('max_price', '').strip()
     organic_input = request.GET.get('organic', 'all').strip().lower()
@@ -459,7 +460,6 @@ def customer_market(request):
     allergen_inputs = request.GET.getlist('allergens')
     season_from_input = request.GET.get('season_from', '').strip().upper()
     season_to_input = request.GET.get('season_to', '').strip().upper()
-    search_input = request.GET.get('search', '').strip()
 
     products = Product.objects.select_related('producer').order_by('name')
 
@@ -507,7 +507,12 @@ def customer_market(request):
     if season_from_input and season_to_input and season_from_input in valid_seasons and season_to_input in valid_seasons:
         products = [
             product for product in products
-            if _season_ranges_overlap(product.seasonal_from, product.seasonal_to, season_from_input, season_to_input)
+            if _season_ranges_overlap(
+                product.seasonal_from,
+                product.seasonal_to,
+                season_from_input,
+                season_to_input
+            )
         ]
 
     return render(
@@ -519,6 +524,7 @@ def customer_market(request):
             'allergen_choices': Product.ALLERGEN_CHOICES,
             'season_choices': Product.SEASON_CHOICES,
             'selected_filters': {
+                'search': search_input,
                 'min_price': min_price_input,
                 'max_price': max_price_input,
                 'organic': organic_input,
@@ -526,7 +532,6 @@ def customer_market(request):
                 'allergens': selected_allergens,
                 'season_from': season_from_input,
                 'season_to': season_to_input,
-                'search': search_input,
             },
         }
     )
