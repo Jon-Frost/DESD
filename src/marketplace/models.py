@@ -120,8 +120,8 @@ class BasketItem(models.Model):
         unique_together = ('customer', 'product')
 
     def get_subtotal(self):
-        # CALCULATE THE LINE TOTAL FOR THIS BASKET ITEM
-        return self.product.price * self.quantity
+        # CALCULATE THE LINE TOTAL FOR THIS BASKET ITEM USING SURPLUS-DISCOUNTED PRICE
+        return self.product.discounted_price * self.quantity
 
     def __str__(self):
         return f"{self.quantity}x {self.product.name} in {self.customer.name}'s basket"

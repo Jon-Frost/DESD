@@ -12,6 +12,11 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
 
   web:
     build: .
@@ -29,8 +34,9 @@ services:
       - DB_HOST=${DB_HOST}
       - DB_PORT=${DB_PORT}
       
-    depends_on: # WILL REQUIRE THE DB TO BE UP BEFORE THE WEB SERVICE STARTS
-      - db
+    depends_on: # WILL REQUIRE THE DB TO BE HEALTHY BEFORE THE WEB SERVICE STARTS
+      db:
+        condition: service_healthy
 
   adminer:
     image: adminer

@@ -31,7 +31,8 @@
                     <td>£{{ item.unit_price }}</td>
                     <td>£{{ item.get_subtotal }}</td>
                     <td>
-                        <!-- ITEM REVIEW FORM - ONLY FOR PRODUCTS ALREADY PURCHASED IN THIS ORDER ITEM -->
+                        {% if order.status == 'DELIVERED' %}
+                        <!-- ITEM REVIEW FORM - ONLY SHOWN AFTER PRODUCER MARKS ORDER AS DELIVERED -->
                         <form method="post" action="{% url 'submit_product_review' item.id %}" class="order-review-form">
                             {% csrf_token %}
 
@@ -58,6 +59,9 @@
                                 {% if item.customer_review %}Update Review{% else %}Submit Review{% endif %}
                             </button>
                         </form>
+                        {% else %}
+                        <span class="review-pending-msg">Available after delivery</span>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}

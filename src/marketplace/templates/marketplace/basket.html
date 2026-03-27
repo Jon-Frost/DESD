@@ -48,8 +48,15 @@
                         <tr class="basket-row">
                             <td>{{ item.product.name }}</td>
                             <td>{{ item.product.producer.business_name }}</td>
-                            <!-- DISPLAY THE PRICE PER UNIT INCLUDING THE UNIT TYPE -->
-                            <td>£{{ item.product.price }} / {{ item.product.unit }}</td>
+                            <!-- DISPLAY THE SURPLUS-DISCOUNTED PRICE PER UNIT INCLUDING THE UNIT TYPE -->
+                            <td>
+                                {% if item.product.is_surplus and item.product.discount_percent > 0 %}
+                                    <span style="text-decoration: line-through; color: #999;">£{{ item.product.price }}</span>
+                                    £{{ item.product.discounted_price|floatformat:2 }} / {{ item.product.unit }}
+                                {% else %}
+                                    £{{ item.product.price }} / {{ item.product.unit }}
+                                {% endif %}
+                            </td>
                             <td>{{ item.quantity }}</td>
                             <!-- CALCULATE AND DISPLAY THE LINE TOTAL FOR THIS ITEM -->
                             <td>£{{ item.get_subtotal }}</td>
@@ -131,6 +138,9 @@
                     {% endif %}
                 </div>
 
+                {% if not stripe_enabled %}
+                <!-- CARD FIELDS ONLY SHOWN WHEN STRIPE IS NOT ACTIVE (LOCAL FALLBACK FLOW) -->
+
                 <!-- CARD HOLDER NAME FIELD -->
                 <div class="auth-field-group">
                     <label class="auth-label" for="{{ form.card_holder_name.id_for_label }}">
@@ -183,6 +193,7 @@
                         {% endif %}
                     </div>
                 </div>
+                {% endif %}
 
                 <!-- PLACE ORDER BUTTON - SUBMITS THE CHECKOUT FORM -->
                 <button class="auth-submit-btn basket-place-order-btn" type="submit">

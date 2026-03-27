@@ -112,8 +112,8 @@ def _season_ranges_overlap(product_from, product_to, filter_from, filter_to):
 
 
 def _create_customer_order_from_basket(customer_profile, basket_items, form_cleaned_data):
-    # CREATE ORDER AND CHILD ORDER ITEMS FROM CURRENT BASKET SNAPSHOT
-    total = sum(item.product.price * item.quantity for item in basket_items)
+    # CREATE ORDER AND CHILD ORDER ITEMS FROM CURRENT BASKET SNAPSHOT (USES SURPLUS-DISCOUNTED PRICE)
+    total = sum(item.product.discounted_price * item.quantity for item in basket_items)
 
     order = CustomerOrder.objects.create(
         customer=customer_profile,
@@ -129,7 +129,7 @@ def _create_customer_order_from_basket(customer_profile, basket_items, form_clea
             order=order,
             product=item.product,
             quantity=item.quantity,
-            unit_price=item.product.price,
+            unit_price=item.product.discounted_price,
         )
 
         item.product.stock_quantity -= item.quantity
@@ -704,7 +704,7 @@ def checkout(request):
                     )
                     return redirect('view_basket')
 
-            total = sum(item.product.price * item.quantity for item in basket_items)
+            total = sum(item.product.discounted_price * item.quantity for item in basket_items)
 
             stripe_secret_key = getattr(settings, 'STRIPE_SECRET_KEY', '')
             stripe_publishable_key = getattr(settings, 'STRIPE_PUBLISHABLE_KEY', '')
@@ -893,6 +893,11 @@ def submit_product_review(request, order_item_id):
         id=order_item_id,
         order__customer=customer_profile,
     )
+
+    # ONLY ALLOW REVIEWS AFTER THE PRODUCER HAS MARKED THE ORDER AS DELIVERED
+    if order_item.order.status != 'DELIVERED':
+        messages.error(request, 'You can only review products after your order has been delivered.')
+        return redirect('order_history')
 
     if request.method == 'POST':
         # READ AND VALIDATE RATING INPUT
