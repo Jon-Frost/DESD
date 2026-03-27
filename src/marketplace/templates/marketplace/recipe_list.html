@@ -1,0 +1,40 @@
+{% extends 'marketplace/base.html' %}
+{% block content %}
+<h2>Recipes</h2>
+
+<!--form method="get" style="margin-bottom: 1rem;">
+    <label><strong>Filter by Season:</strong></label>
+    <select name="season" onchange="this.form.submit()" class="auth-field">
+        <option value="">All Seasons</option>
+        {% for value, label in season_choices %}
+            <option value="{{ value }}" {% if selected_season == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
+</form-->
+
+{% if recipes %}
+    {% for recipe in recipes %}
+    <div class="order-card">
+        <div class="order-header">
+            <span><strong>{{ recipe.title }}</strong></span>
+            <span>By: {{ recipe.producer.business_name }}</span>
+            <span>{{ recipe.get_seasonal_tag_display }}</span>
+        </div>
+        <div class="order-footer">
+            <p>{{ recipe.description|truncatewords:25 }}</p>
+            {% if recipe.linked_products.all %}
+                <p>Uses:
+                    {% for product in recipe.linked_products.all %}
+                        {{ product.name }}{% if not forloop.last %}, {% endif %}
+                    {% endfor %}
+                </p>
+            {% endif %}
+            <a href="{% url 'recipe_detail' recipe.id %}" class="nav-link">View Full Recipe</a>
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+    <p>No recipes found.</p>
+{% endif %}
+
+{% endblock %}

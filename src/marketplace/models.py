@@ -221,6 +221,27 @@ class Notification(models.Model):
         return f"Notification for {self.user.username} - {self.created_at.date()}"
 
 
+class Recipe(models.Model):
+
+    SEASON_CHOICES = [
+        ('SPRING', 'Spring'),
+        ('SUMMER', 'Summer'),
+        ('AUTUMN', 'Autumn/Winter'),
+        ('WINTER', 'Winter'),
+        ('ALL', 'Year Round'),
+    ]
+
+    producer = models.ForeignKey(Producer, on_delete=models.CASCADE, related_name='recipes')
+    title = models.CharField(max_length=200)
+    description = models.TextField()
+    ingredients = models.TextField(help_text="List ingredients, one per line")
+    instructions = models.TextField(help_text="Step by step instructions")
+    seasonal_tag = models.CharField(max_length=10, choices=SEASON_CHOICES, default='ALL')
+    linked_products = models.ManyToManyField(Product, blank=True, related_name='recipes')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.title} by {self.producer.business_name}"
 # PRODUCT REVIEW MODEL - ALLOWS CUSTOMERS TO REVIEW ONLY PRODUCTS THEY HAVE PURCHASED
 class ProductReview(models.Model):
     # LINK REVIEW TO THE CUSTOMER WHO WROTE IT

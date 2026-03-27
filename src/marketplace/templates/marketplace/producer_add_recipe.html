@@ -1,0 +1,72 @@
+{% extends 'marketplace/base.html' %}
+{% block content %}
+<h2>My Recipes</h2>
+
+<div class="order-card">
+    <h3>Add New Recipe</h3>
+    <form method="post" class="auth-form">
+        {% csrf_token %}
+
+        <div class="auth-field-group">
+            <label class="auth-label">{{ form.title.label }}</label>
+            {{ form.title }}
+            {% for error in form.title.errors %}<p class="field-error-msg">{{ error }}</p>{% endfor %}
+        </div>
+
+        <div class="auth-field-group">
+            <label class="auth-label">{{ form.description.label }}</label>
+            {{ form.description }}
+            {% for error in form.description.errors %}<p class="field-error-msg">{{ error }}</p>{% endfor %}
+        </div>
+
+        <div class="auth-field-group">
+            <label class="auth-label">{{ form.ingredients.label }}</label>
+            {{ form.ingredients }}
+            {% for error in form.ingredients.errors %}<p class="field-error-msg">{{ error }}</p>{% endfor %}
+        </div>
+
+        <div class="auth-field-group">
+            <label class="auth-label">{{ form.instructions.label }}</label>
+            {{ form.instructions }}
+            {% for error in form.instructions.errors %}<p class="field-error-msg">{{ error }}</p>{% endfor %}
+        </div>
+
+        <div class="auth-field-group">
+            <label class="auth-label">{{ form.seasonal_tag.label }}</label>
+            {{ form.seasonal_tag }}
+            {% for error in form.seasonal_tag.errors %}<p class="field-error-msg">{{ error }}</p>{% endfor %}
+        </div>
+
+        <div class="auth-field-group">
+            <label class="auth-label">{{ form.linked_products.label }}</label>
+            {{ form.linked_products }}
+        </div>
+
+        <button type="submit" class="auth-submit-btn">Add Recipe</button>
+    </form>
+</div>
+
+{% if producer_recipes %}
+<h3>Your Recipes</h3>
+{% for recipe in producer_recipes %}
+<div class="order-card">
+    <div class="order-header">
+        <span><strong>{{ recipe.title }}</strong></span>
+        <span>{{ recipe.get_seasonal_tag_display }}</span>
+        <span>{{ recipe.created_at|date:"d M Y" }}</span>
+    </div>
+    <div class="order-footer">
+        <p>{{ recipe.description|truncatewords:20 }}</p>
+        <a href="{% url 'edit_recipe' recipe.id %}" class="nav-link">Edit</a>
+        <form method="post" action="{% url 'delete_recipe' recipe.id %}" style="display:inline;">
+            {% csrf_token %}
+            <button type="submit" onclick="return confirm('Delete this recipe?')">Delete</button>
+        </form>
+    </div>
+</div>
+{% endfor %}
+{% else %}
+<p>You have no recipes yet.</p>
+{% endif %}
+
+{% endblock %}

@@ -12,13 +12,10 @@
     <header class="top-bar">
         <div class="brand-name">Bristol Regional Food Network</div>
 
-        <!-- BASKET ICON - DISPLAYED IN THE TOP BAR FOR LOGGED-IN CUSTOMERS -->
-        <!-- SHOWS THE NUMBER OF DISTINCT PRODUCT LINES CURRENTLY IN THE BASKET -->
         <div class="basket-icon-wrapper">
             {% if user.is_authenticated %}
                 {% if is_customer %}
                     <a href="{% url 'view_basket' %}" class="basket-icon-link" title="View Basket">
-                        <!-- DISPLAY THE BASKET COUNT BADGE IF THERE ARE ITEMS -->
                         {% if basket_count > 0 %}
                             <span class="basket-count-badge">{{ basket_count }}</span>
                         {% endif %}
@@ -37,9 +34,7 @@
                 </a>
                 <form action="{% url 'logout' %}" method="post" class="nav-inline-form">
                     {% csrf_token %}
-                    <button type="submit" class="nav-link-btn">
-                        Logout
-                    </button>
+                    <button type="submit" class="nav-link-btn">Logout</button>
                 </form>
             {% else %}
                 <a href="{% url 'signup_choice' %}" class="nav-link">Sign Up</a>
@@ -47,8 +42,7 @@
             {% endif %}
         </nav>
     </header>
-<!-- THINKING OF USING THE SIDEBAR TO ADD USER SPECIFIC INFORMATION,
-     LIKE ORDER HISTORY AND OTHER THINGS -->
+
     <div class="container">
         <aside class="sidebar">
             <h3>Menu</h3>
@@ -67,13 +61,14 @@
                     <li><a href="{% url 'producer_orders' %}" class="nav-link">Incoming Orders</a></li>
                     <li><a href="{% url 'producer_reviews' %}" class="nav-link">Customer Reviews</a></li>
                     <li><a href="{% url 'payment_settlements' %}" class="nav-link">Settlements</a></li>
+                    <li><a href="{% url 'add_recipe' %}" class="nav-link">My Recipes</a></li>
                 {% endif %}
                 {% if user.is_authenticated and is_customer %}
                     <li><a href="{% url 'customer_market' %}" class="nav-link">Market</a></li>
-                    <!-- BASKET SIDEBAR LINK - LETS CUSTOMERS NAVIGATE TO THEIR BASKET FROM ANY PAGE -->
                     <li><a href="{% url 'view_basket' %}" class="nav-link">Basket{% if basket_count > 0 %} ({{ basket_count }}){% endif %}</a></li>
                     <li><a href="{% url 'order_history' %}" class="nav-link">My Orders</a></li>
                     <li><a href="{% url 'manage_recurring_orders' %}" class="nav-link">Recurring Orders</a></li>
+                    <li><a href="{% url 'recipe_list' %}" class="nav-link">Recipes</a></li>
                 {% endif %}
             </ul>
         </aside>

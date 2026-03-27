@@ -41,4 +41,9 @@ urlpatterns = [
     path('orders/recurring/', views.manage_recurring_orders, name='manage_recurring_orders'),
     path('orders/recurring/<int:recurring_order_id>/update/', views.update_recurring_order_status, name='update_recurring_order_status'),
     path('notifications/', views.notifications, name='notifications'),
+    path('recipes/', views.recipe_list, name='recipe_list'),
+    path('recipes/<int:recipe_id>/', views.recipe_detail, name='recipe_detail'),
+    path('producer/recipes/', views.add_recipe, name='add_recipe'),
+    path('producer/recipes/<int:recipe_id>/edit/', views.edit_recipe, name='edit_recipe'),
+    path('producer/recipes/<int:recipe_id>/delete/', views.delete_recipe, name='delete_recipe'),
 ]
