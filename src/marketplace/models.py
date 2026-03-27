@@ -1,7 +1,8 @@
 from django.db import models
 from phonenumber_field.modelfields import PhoneNumberField
 from django.contrib.auth.models import User
-from django.core.validators import MinLengthValidator, MinValueValidator
+from django.core.validators import MaxValueValidator, MinLengthValidator, MinValueValidator
+from decimal import Decimal
 
 class Producer(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -38,7 +39,12 @@ class Product(models.Model):
     is_organic = models.BooleanField(default=False)
     # STRUCTURED ALLERGEN LIST - STORES ZERO OR MORE OF THE UK MAJOR ALLERGEN KEYS
     allergens = models.JSONField(default=list, blank=True)
-    
+    is_surplus = models.BooleanField(default=False)
+    discount_percent = models.PositiveIntegerField(
+        default=0,
+        validators=[MinValueValidator(0), MaxValueValidator(100)]
+    )
+
     CATEGORY_CHOICES = [
         ('VEG', 'Vegetables'),
         ('FRUIT', 'Fruit'),
@@ -84,7 +90,19 @@ class Product(models.Model):
         # MAP STORED ALLERGEN KEYS TO DISPLAY LABELS FOR TEMPLATE OUTPUT
         label_map = dict(self.ALLERGEN_CHOICES)
         return [label_map[key] for key in self.allergens if key in label_map]
+    
+    @property
+    def discounted_price(self):
+        if self.is_surplus and self.discount_percent > 0:
+            discount_amount = (self.price * Decimal(self.discount_percent)) / Decimal('100')
+            return self.price - discount_amount
+        return self.price
+    
+    def clean(self):
+        from django.core.exceptions import ValidationError
 
+        if not self.is_surplus and self.discount_percent > 0:
+            raise ValidationError("Discounts can only be applied to surplus products.")
 
 # BASKET ITEM MODEL - REPRESENTS A SINGLE PRODUCT SITTING IN A CUSTOMER'S BASKET BEFORE CHECKOUT
 class BasketItem(models.Model):

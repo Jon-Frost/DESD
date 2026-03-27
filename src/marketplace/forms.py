@@ -65,6 +65,16 @@ class ProductForm(forms.ModelForm):
         widget=forms.SelectMultiple(attrs={'class': 'producer-allergen-select', 'size': 8}),
     )
 
+    def clean(self):
+        cleaned_data = super().clean()
+        is_surplus = cleaned_data.get('is_surplus')
+        discount_percent = cleaned_data.get('discount_percent') or 0
+
+        if not is_surplus and discount_percent > 0:
+            self.add_error('discount_percent', 'Discount can only be applied to surplus produce.')
+
+        return cleaned_data
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -92,9 +102,13 @@ class ProductForm(forms.ModelForm):
             'seasonal_to',
             'is_organic',
             'allergens',
+            'is_surplus',
+            'discount_percent',
         ]
         widgets = {
             'description': forms.Textarea(attrs={'rows': 3}),
+            'discount_percent': forms.NumberInput(attrs={'min': 0, 'max': 100}),
+
         }
 
     def clean_allergens(self):
