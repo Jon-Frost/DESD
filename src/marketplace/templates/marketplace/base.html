@@ -47,11 +47,19 @@
         <aside class="sidebar">
             <h3>Menu</h3>
             <ul>
-                <li><a href="{% url 'home' %}" class="nav-link">Home</a></li>
+                {% if user.is_authenticated and is_admin %}
+                    <li><a href="{% url 'admin_dashboard' %}" class="nav-link">Dashboard</a></li>
+                    <li><a href="{% url 'admin_profiles' %}" class="nav-link">View Profiles</a></li>
+                    <li><a href="{% url 'admin_orders' %}" class="nav-link">View Order History</a></li>
+                    <li><a href="{% url 'admin_reports' %}" class="nav-link">Reports</a></li>
+                {% else %}
+                    <li><a href="{% url 'home' %}" class="nav-link">Home</a></li>
+                {% endif %}
                 {% if user.is_authenticated and is_producer %}
                     <li><a href="{% url 'add_product' %}" class="nav-link">+ Add Product</a></li>
                     <li><a href="{% url 'producer_bio' %}" class="nav-link">My Bio</a></li>
                     <li><a href="{% url 'producer_orders' %}" class="nav-link">Incoming Orders</a></li>
+                    <li><a href="{% url 'producer_reviews' %}" class="nav-link">Customer Reviews</a></li>
                     <li><a href="{% url 'payment_settlements' %}" class="nav-link">Settlements</a></li>
                     <li><a href="{% url 'add_recipe' %}" class="nav-link">My Recipes</a></li>
                 {% endif %}
@@ -62,8 +70,6 @@
                     <li><a href="{% url 'manage_recurring_orders' %}" class="nav-link">Recurring Orders</a></li>
                     <li><a href="{% url 'recipe_list' %}" class="nav-link">Recipes</a></li>
                 {% endif %}
-                <li><a href="#" class="nav-link">Producers</a></li>
-                <li><a href="#" class="nav-link">Products</a></li>
             </ul>
         </aside>
 

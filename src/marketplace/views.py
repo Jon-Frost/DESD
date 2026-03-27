@@ -1,17 +1,237 @@
 from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.conf import settings
 from decimal import Decimal, InvalidOperation
 from django.db.models import Q
 from .models import Producer, Customer, Product, BasketItem, CustomerOrder, OrderItem, RecurringOrder, RecurringOrderItem, Notification, Recipe
 from .forms import CustomerSignupForm, ProducerSignupForm, ProductForm, ProducerBioForm, CheckoutForm, RecipeForm
+from django.db.models import Q, Sum
+from django.contrib.auth.models import User
+from .models import Producer, Customer, Product, BasketItem, CustomerOrder, OrderItem, RecurringOrder, RecurringOrderItem, Notification, ProductReview
+from .forms import CustomerSignupForm, ProducerSignupForm, ProductForm, ProducerBioForm, CheckoutForm
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from django.http import HttpResponse
 from datetime import date, timedelta
 
+try:
+    import stripe
+except ImportError:
+    stripe = None
+
+
+# ADMIN ROLE CHECK - RETURNS TRUE IF THE USER IS A STAFF OR SUPERUSER
+def _is_admin_user(user):
+    return user.is_authenticated and (user.is_staff or user.is_superuser)
+
+
+def _parse_report_date(date_input):
+    if not date_input:
+        return None
+    try:
+        return date.fromisoformat(date_input)
+    except ValueError:
+        return None
+
+
+def _build_admin_report_data(report_type, parsed_from=None, parsed_to=None):
+    # FINANCIAL REPORT DATA
+    if report_type == 'financial':
+        orders = CustomerOrder.objects.all()
+
+        if parsed_from:
+            orders = orders.filter(created_at__date__gte=parsed_from)
+        if parsed_to:
+            orders = orders.filter(created_at__date__lte=parsed_to)
+
+        total_sales = orders.aggregate(total=Sum('total_price'))['total'] or Decimal('0.00')
+        total_commission = round(total_sales * Decimal('0.05'), 2)
+        total_producer_payouts = round(total_sales * Decimal('0.95'), 2)
+        order_count = orders.count()
+        average_order_value = round(total_sales / order_count, 2) if order_count else Decimal('0.00')
+
+        return {
+            'type': 'financial',
+            'total_sales': total_sales,
+            'total_commission': total_commission,
+            'total_producer_payouts': total_producer_payouts,
+            'order_count': order_count,
+            'average_order_value': average_order_value,
+        }
+
+    # PLATFORM USAGE REPORT DATA
+    if report_type == 'platform_usage':
+        users = User.objects.all()
+        orders = CustomerOrder.objects.all()
+        new_users = users
+
+        if parsed_from:
+            new_users = new_users.filter(date_joined__date__gte=parsed_from)
+            orders = orders.filter(created_at__date__gte=parsed_from)
+
+        if parsed_to:
+            new_users = new_users.filter(date_joined__date__lte=parsed_to)
+            orders = orders.filter(created_at__date__lte=parsed_to)
+
+        total_accounts = users.count()
+        new_accounts = new_users.count() if (parsed_from or parsed_to) else total_accounts
+        total_products = Product.objects.count()
+        total_orders = orders.count()
+
+        return {
+            'type': 'platform_usage',
+            'total_accounts': total_accounts,
+            'new_accounts': new_accounts,
+            'total_products': total_products,
+            'total_orders': total_orders,
+        }
+
+    return None
+
+
+def _expand_season_range(from_season, to_season):
+    # EXPAND A CYCLICAL SEASON RANGE (E.G. AUTUMN -> SPRING) INTO ITS INCLUDED SEASONS
+    season_order = ['SPRING', 'SUMMER', 'AUTUMN', 'WINTER']
+    if from_season not in season_order or to_season not in season_order:
+        return set()
+
+    start_index = season_order.index(from_season)
+    end_index = season_order.index(to_season)
+
+    included = {from_season}
+    current_index = start_index
+    while current_index != end_index:
+        current_index = (current_index + 1) % len(season_order)
+        included.add(season_order[current_index])
+    return included
+
+
+def _season_ranges_overlap(product_from, product_to, filter_from, filter_to):
+    # OVERLAP CHECK ENSURES A PRODUCT IS SHOWN IF ANY PART OF ITS WINDOW MATCHES THE FILTER WINDOW
+    product_seasons = _expand_season_range(product_from, product_to)
+    filter_seasons = _expand_season_range(filter_from, filter_to)
+    return bool(product_seasons & filter_seasons)
+
+
+def _create_customer_order_from_basket(customer_profile, basket_items, form_cleaned_data):
+    # CREATE ORDER AND CHILD ORDER ITEMS FROM CURRENT BASKET SNAPSHOT (USES SURPLUS-DISCOUNTED PRICE)
+    total = sum(item.product.discounted_price * item.quantity for item in basket_items)
+
+    order = CustomerOrder.objects.create(
+        customer=customer_profile,
+        delivery_address=form_cleaned_data['delivery_address'],
+        preferred_delivery_date=form_cleaned_data['preferred_delivery_date'],
+        card_holder_name=form_cleaned_data.get('card_holder_name') or 'Stripe Checkout',
+        card_number_last4=(form_cleaned_data.get('card_number', '')[-4:] or '4242'),
+        total_price=total,
+    )
+
+    for item in basket_items:
+        OrderItem.objects.create(
+            order=order,
+            product=item.product,
+            quantity=item.quantity,
+            unit_price=item.product.discounted_price,
+        )
+
+        item.product.stock_quantity -= item.quantity
+        item.product.save()
+
+        Notification.objects.create(
+            user=item.product.producer.user,
+            message=f'New order #{order.id} received for {item.quantity}x {item.product.name} from {order.customer.name}. Delivery: {order.preferred_delivery_date}.'
+        )
+
+        if item.product.stock_quantity <= item.product.low_stock_threshold:
+            Notification.objects.create(
+                user=item.product.producer.user,
+                message=f'Low stock alert: {item.product.name} only has {item.product.stock_quantity} units remaining.'
+            )
+
+    basket_items.delete()
+    return order
+
+
+def _create_recurring_order_if_requested(request, customer_profile, order):
+    # CREATE RECURRING ORDER USING THE CONFIRMED ORDER ITEMS WHEN SESSION DATA EXISTS
+    if 'recurring_order_data' not in request.session:
+        return
+
+    recurring_data = request.session.pop('recurring_order_data')
+    recurring_order = RecurringOrder.objects.create(
+        customer=customer_profile,
+        frequency=recurring_data['frequency'],
+        delivery_address=recurring_data['delivery_address'],
+        next_order_date=date.fromisoformat(recurring_data['next_order_date']),
+    )
+
+    for order_item in order.items.all():
+        RecurringOrderItem.objects.create(
+            recurring_order=recurring_order,
+            product=order_item.product,
+            quantity=order_item.quantity,
+        )
+
+    messages.success(
+        request,
+        f'Recurring {recurring_data["frequency"].lower()} order created successfully!'
+    )
+
+
 def home(request):
-    return render(request, 'marketplace/home.html')
+    # REDIRECT ADMIN USERS TO THEIR OWN DASHBOARD ON LOGIN
+    if _is_admin_user(request.user):
+        return redirect('admin_dashboard')
+
+    producer_home_data = None
+    customer_home_data = None
+
+    if request.user.is_authenticated:
+        producer_profile = _get_logged_in_producer(request.user)
+        customer_profile = _get_logged_in_customer(request.user)
+
+        if producer_profile is not None:
+            producer_products = Product.objects.filter(producer=producer_profile)
+            recent_orders = CustomerOrder.objects.filter(
+                items__product__producer=producer_profile
+            ).select_related('customer').distinct().order_by('-created_at')[:3]
+            recent_reviews = ProductReview.objects.filter(
+                product__producer=producer_profile
+            ).select_related('customer', 'product').order_by('-created_at')[:3]
+
+            producer_home_data = {
+                'product_count': producer_products.count(),
+                'low_stock_count': producer_products.filter(stock_quantity__lte=10).count(),
+                'pending_orders_count': CustomerOrder.objects.filter(
+                    items__product__producer=producer_profile,
+                    status='PENDING'
+                ).distinct().count(),
+                'recent_orders': recent_orders,
+                'recent_reviews': recent_reviews,
+            }
+
+        if customer_profile is not None:
+            customer_orders = CustomerOrder.objects.filter(customer=customer_profile)
+            customer_home_data = {
+                'market_product_count': Product.objects.count(),
+                'basket_lines': BasketItem.objects.filter(customer=customer_profile).count(),
+                'active_recurring_count': RecurringOrder.objects.filter(
+                    customer=customer_profile,
+                    status='ACTIVE'
+                ).count(),
+                'last_order': customer_orders.order_by('-created_at').first(),
+                'recent_orders': customer_orders.order_by('-created_at')[:3],
+            }
+
+    return render(
+        request,
+        'marketplace/home.html',
+        {
+            'producer_home_data': producer_home_data,
+            'customer_home_data': customer_home_data,
+        }
+    )
 
 def signup_choice(request):
     return render(request, 'marketplace/signup_choice.html')
@@ -79,6 +299,101 @@ def _get_logged_in_customer(user):
         return None
 
 
+
+# ADMIN DASHBOARD VIEW
+
+@login_required
+def admin_dashboard(request):
+    # ONLY ALLOW STAFF / SUPERUSERS TO ACCESS THE ADMIN DASHBOARD
+    if not _is_admin_user(request.user):
+        return redirect('home')
+
+    return render(
+        request,
+        'marketplace/admin_dashboard.html',
+        {
+            'total_orders': CustomerOrder.objects.count(),
+            'total_producers': Producer.objects.count(),
+            'total_customers': Customer.objects.count(),
+        }
+    )
+
+
+
+#DISPLAYS ALL PRODUCER AND CUSTOMER PROFILES
+
+@login_required
+def admin_profiles(request):
+    if not _is_admin_user(request.user):
+        return redirect('home')
+
+    producers = Producer.objects.select_related('user').order_by('business_name')
+    customers = Customer.objects.select_related('user').order_by('name')
+
+    return render(
+        request,
+        'marketplace/admin_profiles.html',
+        {
+            'producers': producers,
+            'customers': customers,
+            'total_producers': producers.count(),
+            'total_customers': customers.count(),
+        }
+    )
+
+
+
+# DISPLAYS ALL ORDERS ACROSS THE PLATFORM
+
+@login_required
+def admin_orders(request):
+    if not _is_admin_user(request.user):
+        return redirect('home')
+
+    orders = CustomerOrder.objects.select_related(
+        'customer__user'
+    ).prefetch_related(
+        'items__product__producer'
+    ).order_by('-created_at')
+
+    return render(
+        request,
+        'marketplace/admin_orders.html',
+        {
+            'orders': orders,
+            'total_orders': orders.count(),
+        }
+    )
+
+
+
+# GENERATES FINANCIAL OR PLATFORM USAGE REPORTS
+
+@login_required
+def admin_reports(request):
+    if not _is_admin_user(request.user):
+        return redirect('home')
+
+    report_type = request.GET.get('report_type', '')
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
+
+    parsed_from = _parse_report_date(date_from)
+    parsed_to = _parse_report_date(date_to)
+    report_data = _build_admin_report_data(report_type, parsed_from, parsed_to)
+
+    return render(
+        request,
+        'marketplace/admin_reports.html',
+        {
+            'report_type': report_type,
+            'date_from': date_from,
+            'date_to': date_to,
+            'report_data': report_data,
+        }
+    )
+
+
 @login_required
 def producer_product_actions(request, product_id):
     producer_profile = _get_logged_in_producer(request.user)
@@ -140,13 +455,20 @@ def customer_market(request):
         return redirect('home')
 
     # MARKET FILTER INPUTS FROM QUERY STRING
+    search_input = request.GET.get('search', '').strip()
     min_price_input = request.GET.get('min_price', '').strip()
     max_price_input = request.GET.get('max_price', '').strip()
     organic_input = request.GET.get('organic', 'all').strip().lower()
     category_input = request.GET.get('category', '').strip()
     allergen_inputs = request.GET.getlist('allergens')
+    season_from_input = request.GET.get('season_from', '').strip().upper()
+    season_to_input = request.GET.get('season_to', '').strip().upper()
 
     products = Product.objects.select_related('producer').order_by('name')
+
+    # APPLY CASE-INSENSITIVE NAME SEARCH WHEN A SEARCH TERM IS PROVIDED
+    if search_input:
+        products = products.filter(name__icontains=search_input)
 
     # APPLY MIN/MAX PRICE FILTERS WHEN VALUES ARE VALID DECIMALS
     if min_price_input:
@@ -183,6 +505,19 @@ def customer_market(request):
             allergen_query |= Q(allergens__contains=[allergen])
         products = products.exclude(allergen_query)
 
+    # APPLY SEASON AVAILABILITY FILTER USING THE SAME FROM/TO MODEL AS PRODUCERS
+    valid_seasons = [choice[0] for choice in Product.SEASON_CHOICES]
+    if season_from_input and season_to_input and season_from_input in valid_seasons and season_to_input in valid_seasons:
+        products = [
+            product for product in products
+            if _season_ranges_overlap(
+                product.seasonal_from,
+                product.seasonal_to,
+                season_from_input,
+                season_to_input
+            )
+        ]
+
     return render(
         request,
         'marketplace/customer_market.html',
@@ -190,12 +525,16 @@ def customer_market(request):
             'products': products,
             'category_choices': Product.CATEGORY_CHOICES,
             'allergen_choices': Product.ALLERGEN_CHOICES,
+            'season_choices': Product.SEASON_CHOICES,
             'selected_filters': {
+                'search': search_input,
                 'min_price': min_price_input,
                 'max_price': max_price_input,
                 'organic': organic_input,
                 'category': category_input,
                 'allergens': selected_allergens,
+                'season_from': season_from_input,
+                'season_to': season_to_input,
             },
         }
     )
@@ -235,7 +574,7 @@ def producer_bio_public(request, producer_id):
     )
 
 
-# ADD TO BASKET VIEW - HANDLES A POST REQUEST TO ADD A PRODUCT TO THE CUSTOMER'S BASKET
+# ADD TO BASKET VIEW 
 @login_required
 def add_to_basket(request, product_id):
     # VERIFY THE LOGGED-IN USER IS A CUSTOMER
@@ -305,6 +644,9 @@ def view_basket(request):
     # INITIALISE A BLANK CHECKOUT FORM FOR THE CUSTOMER TO FILL IN
     form = CheckoutForm()
 
+    # CHECK IF A RECURRING ORDER SETUP IS IN PROGRESS
+    recurring_order_setup = request.session.get('recurring_order_data', None)
+
     return render(
         request,
         'marketplace/basket.html',
@@ -312,6 +654,7 @@ def view_basket(request):
             'basket_items': basket_items,
             'total': total,
             'form': form,
+            'recurring_order_setup': recurring_order_setup,
         }
     )
 
@@ -364,51 +707,50 @@ def checkout(request):
                     )
                     return redirect('view_basket')
 
-            # CALCULATE THE TOTAL ORDER VALUE USING THE CURRENT PRODUCT PRICES
-            total = sum(item.product.price * item.quantity for item in basket_items)
+            total = sum(item.product.discounted_price * item.quantity for item in basket_items)
 
-            # CREATE THE PARENT ORDER RECORD IN THE CUSTOMER_ORDERS TABLE
-            order = CustomerOrder.objects.create(
-                customer=customer_profile,
-                delivery_address=form.cleaned_data['delivery_address'],
-                preferred_delivery_date=form.cleaned_data['preferred_delivery_date'],
-                card_holder_name=form.cleaned_data['card_holder_name'],
-                # ONLY STORE THE LAST 4 DIGITS OF THE CARD NUMBER FOR SECURITY
-                card_number_last4=form.cleaned_data['card_number'][-4:],
-                total_price=total,
-            )
+            stripe_secret_key = getattr(settings, 'STRIPE_SECRET_KEY', '')
+            stripe_publishable_key = getattr(settings, 'STRIPE_PUBLISHABLE_KEY', '')
+            use_stripe_checkout = bool(stripe and stripe_secret_key and stripe_publishable_key)
 
-            # CREATE AN ORDER ITEM RECORD FOR EACH PRODUCT AND REDUCE THE STOCK
-            for item in basket_items:
-                # SAVE A SNAPSHOT OF THE UNIT PRICE AT THE TIME OF PURCHASE
-                OrderItem.objects.create(
-                    order=order,
-                    product=item.product,
-                    quantity=item.quantity,
-                    unit_price=item.product.price,
-                )
-
-                # DEDUCT THE ORDERED QUANTITY FROM THE PRODUCT'S REMAINING STOCK
-                item.product.stock_quantity -= item.quantity
-                item.product.save()
-
-                # NOTIFY THE PRODUCER OF THE NEW ORDER
-                Notification.objects.create(
-                    user=item.product.producer.user,
-                    message=f'New order #{order.id} received for {item.quantity}x {item.product.name} from {order.customer.name}. Delivery: {order.preferred_delivery_date}.'
-                )
-
-                # NOTIFY PRODUCER IF STOCK IS NOW LOW
-                if item.product.stock_quantity <= item.product.low_stock_threshold:
-                    Notification.objects.create(
-                        user=item.product.producer.user,
-                        message=f'Low stock alert: {item.product.name} only has {item.product.stock_quantity} units remaining.'
+            if use_stripe_checkout:
+                # CREATE STRIPE TEST SESSION AND FINALIZE ORDER ONLY AFTER SUCCESS CALLBACK
+                stripe.api_key = stripe_secret_key
+                try:
+                    checkout_session = stripe.checkout.Session.create(
+                        mode='payment',
+                        payment_method_types=['card'],
+                        line_items=[
+                            {
+                                'price_data': {
+                                    'currency': 'gbp',
+                                    'product_data': {
+                                        'name': 'BRFN Basket Order',
+                                    },
+                                    'unit_amount': int(total * 100),
+                                },
+                                'quantity': 1,
+                            }
+                        ],
+                        success_url=request.build_absolute_uri('/orders/checkout/stripe/success/') + '?session_id={CHECKOUT_SESSION_ID}',
+                        cancel_url=request.build_absolute_uri('/basket/'),
                     )
+                except Exception:
+                    messages.error(request, 'Stripe checkout could not be started. Please try again.')
+                    return redirect('view_basket')
 
-            # CLEAR THE CUSTOMER'S BASKET NOW THAT THE ORDER HAS BEEN CONFIRMED
-            basket_items.delete()
+                request.session['pending_checkout_data'] = {
+                    'delivery_address': form.cleaned_data['delivery_address'],
+                    'preferred_delivery_date': form.cleaned_data['preferred_delivery_date'].isoformat(),
+                    'card_holder_name': form.cleaned_data['card_holder_name'],
+                    'card_number_last4': form.cleaned_data['card_number'][-4:],
+                    'customer_id': customer_profile.id,
+                }
+                return redirect(checkout_session.url)
 
-            # REDIRECT TO THE ORDER CONFIRMATION PAGE
+            # NON-STRIPE FALLBACK: COMPLETE ORDER IMMEDIATELY USING CURRENT FLOW
+            order = _create_customer_order_from_basket(customer_profile, basket_items, form.cleaned_data)
+            _create_recurring_order_if_requested(request, customer_profile, order)
             return redirect('order_confirmation', order_id=order.id)
 
         else:
@@ -426,6 +768,66 @@ def checkout(request):
             )
 
     return redirect('view_basket')
+
+
+@login_required
+def stripe_checkout_success(request):
+    # FINALIZE ORDER ONLY IF STRIPE SESSION IS PRESENT AND PAID
+    customer_profile = _get_logged_in_customer(request.user)
+    if customer_profile is None:
+        return redirect('home')
+
+    session_id = request.GET.get('session_id', '')
+    pending_data = request.session.get('pending_checkout_data')
+    if not session_id or not pending_data:
+        messages.error(request, 'Checkout session not found. Please try again.')
+        return redirect('view_basket')
+
+    if pending_data.get('customer_id') != customer_profile.id:
+        messages.error(request, 'Checkout session does not belong to this customer.')
+        return redirect('view_basket')
+
+    stripe_secret_key = getattr(settings, 'STRIPE_SECRET_KEY', '')
+    if not stripe or not stripe_secret_key:
+        messages.error(request, 'Stripe is not configured in this environment.')
+        return redirect('view_basket')
+
+    stripe.api_key = stripe_secret_key
+    try:
+        checkout_session = stripe.checkout.Session.retrieve(session_id)
+    except Exception:
+        messages.error(request, 'Could not verify Stripe checkout session.')
+        return redirect('view_basket')
+
+    if checkout_session.payment_status != 'paid':
+        messages.error(request, 'Payment was not completed. Please try again.')
+        return redirect('view_basket')
+
+    basket_items = BasketItem.objects.filter(customer=customer_profile).select_related('product')
+    if not basket_items.exists():
+        messages.error(request, 'Your basket is empty. Nothing to confirm.')
+        return redirect('view_basket')
+
+    for item in basket_items:
+        if item.quantity > item.product.stock_quantity:
+            messages.error(
+                request,
+                f'Sorry, "{item.product.name}" now only has {item.product.stock_quantity} unit(s) in stock. Please update your basket.'
+            )
+            return redirect('view_basket')
+
+    order_data = {
+        'delivery_address': pending_data['delivery_address'],
+        'preferred_delivery_date': date.fromisoformat(pending_data['preferred_delivery_date']),
+        'card_holder_name': pending_data.get('card_holder_name') or 'Stripe Checkout',
+        'card_number': pending_data.get('card_number_last4') or '4242',
+    }
+
+    order = _create_customer_order_from_basket(customer_profile, basket_items, order_data)
+    _create_recurring_order_if_requested(request, customer_profile, order)
+
+    request.session.pop('pending_checkout_data', None)
+    return redirect('order_confirmation', order_id=order.id)
 
 
 # ORDER CONFIRMATION VIEW - DISPLAYS A SUMMARY OF THE COMPLETED ORDER
@@ -463,10 +865,120 @@ def order_history(request):
         customer=customer_profile
     ).prefetch_related('items__product__producer').order_by('-created_at')
 
+    # ATTACH REVIEW OBJECTS TO EACH ORDER ITEM FOR TEMPLATE RENDERING
+    order_item_ids = [item.id for order in orders for item in order.items.all()]
+    reviews_by_order_item_id = {
+        review.order_item_id: review
+        for review in ProductReview.objects.filter(order_item_id__in=order_item_ids)
+    }
+
+    for order in orders:
+        for item in order.items.all():
+            item.customer_review = reviews_by_order_item_id.get(item.id)
+
     return render(
         request,
         'marketplace/order_history.html',
         {'orders': orders}
+    )
+
+
+# SUBMIT PRODUCT REVIEW VIEW - ALLOWS REVIEW ONLY FOR PRODUCTS THE CUSTOMER HAS PURCHASED
+@login_required
+def submit_product_review(request, order_item_id):
+    customer_profile = _get_logged_in_customer(request.user)
+    if customer_profile is None:
+        return redirect('home')
+
+    # ENSURE THE TARGET ORDER ITEM BELONGS TO THE LOGGED-IN CUSTOMER'S ORDER HISTORY
+    order_item = get_object_or_404(
+        OrderItem.objects.select_related('order', 'product'),
+        id=order_item_id,
+        order__customer=customer_profile,
+    )
+
+    # ONLY ALLOW REVIEWS AFTER THE PRODUCER HAS MARKED THE ORDER AS DELIVERED
+    if order_item.order.status != 'DELIVERED':
+        messages.error(request, 'You can only review products after your order has been delivered.')
+        return redirect('order_history')
+
+    if request.method == 'POST':
+        # READ AND VALIDATE RATING INPUT
+        rating_raw = request.POST.get('rating', '').strip()
+        comment = request.POST.get('comment', '').strip()
+
+        try:
+            rating = int(rating_raw)
+        except (TypeError, ValueError):
+            rating = None
+
+        if rating not in {1, 2, 3, 4, 5}:
+            messages.error(request, 'Please select a valid rating between 1 and 5.')
+            return redirect('order_history')
+
+        # CREATE OR UPDATE A REVIEW FOR THIS PURCHASED ORDER ITEM
+        review, created = ProductReview.objects.get_or_create(
+            order_item=order_item,
+            defaults={
+                'customer': customer_profile,
+                'product': order_item.product,
+                'rating': rating,
+                'comment': comment,
+            },
+        )
+
+        if review.customer_id != customer_profile.id:
+            messages.error(request, 'You are not allowed to update this review.')
+            return redirect('order_history')
+
+        # SAVE UPDATED REVIEW VALUES
+        review.product = order_item.product
+        review.rating = rating
+        review.comment = comment
+        review.save()
+
+        # CREATE A PRODUCER NOTIFICATION SO REVIEWS APPEAR IN THE NOTIFICATIONS PAGE
+        if created:
+            notification_message = (
+                f'Review received: {customer_profile.name} rated "{order_item.product.name}" '
+                f'{rating}/5 on order #{order_item.order.id}.'
+            )
+        else:
+            notification_message = (
+                f'Review updated: {customer_profile.name} changed review for "{order_item.product.name}" '
+                f'to {rating}/5 on order #{order_item.order.id}.'
+            )
+
+        Notification.objects.create(
+            user=order_item.product.producer.user,
+            message=notification_message,
+        )
+
+        messages.success(request, f'Review saved for "{order_item.product.name}".')
+
+    return redirect('order_history')
+
+
+# PRODUCER REVIEWS VIEW - SHOWS ALL REVIEWS LEFT BY CUSTOMERS FOR THIS PRODUCER'S PRODUCTS
+@login_required
+def producer_reviews(request):
+    producer_profile = _get_logged_in_producer(request.user)
+    if producer_profile is None:
+        return redirect('home')
+
+    # FETCH ALL REVIEWS FOR PRODUCTS OWNED BY THIS PRODUCER
+    reviews = ProductReview.objects.filter(
+        product__producer=producer_profile
+    ).select_related(
+        'customer__user',
+        'product',
+        'order_item__order'
+    ).order_by('-created_at')
+
+    return render(
+        request,
+        'marketplace/producer_reviews.html',
+        {'reviews': reviews}
     )
 
 
@@ -804,6 +1316,81 @@ def download_settlement_pdf(request, week_start_str):
     return response
 
 
+# SETUP RECURRING ORDER VIEW - STORES RECURRING ORDER DETAILS IN SESSION AND DIRECTS BACK TO BASKET FOR PAYMENT
+@login_required
+def setup_recurring_order(request):
+    customer_profile = _get_logged_in_customer(request.user)
+    if customer_profile is None:
+        return redirect('home')
+
+    basket_items = BasketItem.objects.filter(
+        customer=customer_profile
+    ).select_related('product')
+
+    if not basket_items.exists():
+        messages.error(request, 'Your basket is empty.')
+        return redirect('view_basket')
+
+    if request.method == 'POST':
+        frequency = request.POST.get('frequency')
+        delivery_address = request.POST.get('delivery_address')
+        next_order_date = request.POST.get('next_order_date')
+
+        valid_frequencies = [choice[0] for choice in RecurringOrder.FREQUENCY_CHOICES]
+        if frequency not in valid_frequencies:
+            messages.error(request, 'Invalid frequency selected.')
+            return redirect('setup_recurring_order')
+
+        try:
+            next_order_date = date.fromisoformat(next_order_date)
+        except ValueError:
+            messages.error(request, 'Invalid date selected.')
+            return redirect('setup_recurring_order')
+
+        if next_order_date < date.today() + timedelta(days=2):
+            messages.error(request, 'First delivery must be at least 48 hours from now.')
+            return redirect('setup_recurring_order')
+
+        # STORE THE RECURRING ORDER DETAILS IN THE SESSION
+        request.session['recurring_order_data'] = {
+            'frequency': frequency,
+            'delivery_address': delivery_address,
+            'next_order_date': next_order_date.isoformat(),
+        }
+        
+        messages.success(
+            request,
+            'Recurring order details saved. Please complete payment to confirm your recurring order.'
+        )
+        return redirect('view_basket')
+
+    return render(
+        request,
+        'marketplace/setup_recurring_order.html',
+        {
+            'basket_items': basket_items,
+            'frequency_choices': RecurringOrder.FREQUENCY_CHOICES,
+            'delivery_address': customer_profile.address,
+            'min_date': (date.today() + timedelta(days=2)).isoformat(),
+        }
+    )
+
+
+# CANCEL RECURRING ORDER SETUP VIEW - CANCELS AN IN-PROGRESS RECURRING ORDER SETUP
+@login_required
+def cancel_recurring_setup(request):
+    customer_profile = _get_logged_in_customer(request.user)
+    if customer_profile is None:
+        return redirect('home')
+
+    # REMOVE THE RECURRING ORDER DATA FROM THE SESSION
+    if 'recurring_order_data' in request.session:
+        del request.session['recurring_order_data']
+        messages.info(request, 'Recurring order setup cancelled.')
+    
+    return redirect('view_basket')
+
+
 # SETUP RECURRING ORDER VIEW - CREATES A RECURRING ORDER FROM THE CUSTOMER'S BASKET
 @login_required
 def setup_recurring_order(request):
@@ -1039,3 +1626,71 @@ def recipe_detail(request, recipe_id):
             'linked_products': linked_products,
         }
     )
+# ADMIN REPORT PDF EXPORT VIEW - GENERATES A PDF VERSION OF A SELECTED REPORT
+@login_required
+def download_admin_report_pdf(request):
+    if not _is_admin_user(request.user):
+        return redirect('home')
+
+    report_type = request.GET.get('report_type', '')
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
+
+    parsed_from = _parse_report_date(date_from)
+    parsed_to = _parse_report_date(date_to)
+    report_data = _build_admin_report_data(report_type, parsed_from, parsed_to)
+
+    if report_data is None:
+        return redirect('admin_reports')
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="admin_report_{report_type}.pdf"'
+
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+    y = height - 50
+
+    p.setFont("Helvetica-Bold", 18)
+    p.drawString(50, y, "Bristol Regional Food Network")
+    y -= 25
+    p.setFont("Helvetica", 12)
+    p.drawString(50, y, "Admin Report")
+    y -= 18
+    p.drawString(50, y, f"Type: {report_type.replace('_', ' ').title()}")
+    y -= 18
+    period_label = f"{date_from or 'beginning'} to {date_to or 'present'}" if (date_from or date_to) else "All time"
+    p.drawString(50, y, f"Period: {period_label}")
+    y -= 30
+
+    p.setFont("Helvetica-Bold", 11)
+    if report_data['type'] == 'financial':
+        p.drawString(50, y, "Total Sales")
+        p.drawString(280, y, f"£{report_data['total_sales']}")
+        y -= 20
+        p.drawString(50, y, "Commission Earned (5%)")
+        p.drawString(280, y, f"£{report_data['total_commission']}")
+        y -= 20
+        p.drawString(50, y, "Producer Payouts (95%)")
+        p.drawString(280, y, f"£{report_data['total_producer_payouts']}")
+        y -= 20
+        p.drawString(50, y, "Orders")
+        p.drawString(280, y, f"{report_data['order_count']}")
+        y -= 20
+        p.drawString(50, y, "Average Order Value")
+        p.drawString(280, y, f"£{report_data['average_order_value']}")
+    else:
+        p.drawString(50, y, "Total Accounts")
+        p.drawString(280, y, f"{report_data['total_accounts']}")
+        y -= 20
+        p.drawString(50, y, "New Accounts (in period)")
+        p.drawString(280, y, f"{report_data['new_accounts']}")
+        y -= 20
+        p.drawString(50, y, "Products Listed")
+        p.drawString(280, y, f"{report_data['total_products']}")
+        y -= 20
+        p.drawString(50, y, "Orders Placed")
+        p.drawString(280, y, f"{report_data['total_orders']}")
+
+    p.showPage()
+    p.save()
+    return response

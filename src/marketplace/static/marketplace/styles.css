@@ -416,6 +416,106 @@ body {
     margin: 0 0 10px;
 }
 
+/* --- HOME DASHBOARD STYLES --- */
+
+.home-page {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.home-hero,
+.home-panel {
+    background: #ffffff;
+    border: 1px solid #c8e6c9;
+    border-radius: 8px;
+    padding: 18px;
+}
+
+.home-hero h1,
+.home-panel h2 {
+    margin-top: 0;
+    color: #1b5e20;
+}
+
+.home-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 12px;
+    margin-top: 10px;
+}
+
+.home-kpi-card {
+    background: #f4faf4;
+    border: 1px solid #d8ead9;
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.home-kpi-label {
+    margin: 0;
+    color: #2f5f34;
+    font-size: 0.9rem;
+}
+
+.home-kpi-value {
+    margin: 6px 0 0;
+    color: #1b5e20;
+    font-size: 1.4rem;
+    font-weight: bold;
+}
+
+.home-quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.home-list {
+    margin: 10px 0 0;
+    padding-left: 18px;
+}
+
+.home-list li {
+    margin-bottom: 6px;
+}
+
+.home-muted {
+    color: #666;
+    font-style: italic;
+}
+
+/* --- STRIPE PAYMENT BADGES --- */
+
+.stripe-badge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid #c7d4ff;
+    border-radius: 8px;
+    background: #f6f8ff;
+    color: #1f2d66;
+    margin: 10px 0 18px;
+    font-size: 0.95rem;
+}
+
+.stripe-badge-logo {
+    display: inline-block;
+    font-weight: bold;
+    color: #635bff;
+    background: #ffffff;
+    border: 1px solid #d7dcff;
+    border-radius: 6px;
+    padding: 3px 8px;
+    letter-spacing: 0.2px;
+}
+
+.stripe-confirmation-line {
+    color: #22306f;
+}
+
 .producer-product-description,
 .producer-product-allergens {
     color: #444;
@@ -940,4 +1040,466 @@ body {
 /* PRODUCER ALLERGEN MULTI-SELECT DROPDOWN */
 .producer-allergen-select {
     min-height: 180px;
+}
+
+/* --- ORDER HISTORY REVIEW STYLES --- */
+
+/* INLINE REVIEW FORM INSIDE ORDER HISTORY TABLE */
+.order-review-form {
+    min-width: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: #f7fff8;
+    border: 1px solid #cfe8d1;
+    border-radius: 8px;
+    padding: 8px;
+}
+
+/* LABELS FOR REVIEW INPUTS */
+.order-review-label {
+    font-size: 0.8rem;
+    font-weight: bold;
+    color: #2e7d32;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+/* RATING DROPDOWN IN ORDER HISTORY */
+.order-review-rating {
+    border: 1px solid #9ac99d;
+    border-radius: 4px;
+    padding: 5px 7px;
+    font-size: 0.85rem;
+    font-weight: bold;
+    color: #1b5e20;
+    background: #ffffff;
+}
+
+/* COMMENT INPUT FOR PRODUCT REVIEW */
+.order-review-comment {
+    border: 1px solid #9ac99d;
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 0.85rem;
+    resize: vertical;
+    font-weight: bold;
+    color: #1b5e20;
+    background: #ffffff;
+}
+
+/* REVIEW SAVE BUTTON */
+.order-review-btn {
+    background: #2e7d32;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    padding: 6px 8px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.order-review-btn:hover,
+.order-review-btn:focus {
+    background: #1b5e20;
+}
+
+/* --- PRODUCER REVIEWS PAGE STYLES --- */
+
+.producer-reviews-page {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.producer-reviews-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 14px;
+}
+
+.producer-review-card {
+    background: #f7fff8;
+    border: 1px solid #cfe8d1;
+    border-radius: 10px;
+    padding: 14px;
+}
+
+.producer-review-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.producer-review-product {
+    margin: 0;
+    color: #1b5e20;
+    font-size: 1rem;
+    font-weight: bold;
+}
+
+.producer-review-rating {
+    background: #2e7d32;
+    color: #fff;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-weight: bold;
+    font-size: 0.85rem;
+}
+
+.producer-review-meta {
+    margin: 4px 0;
+    color: #1b5e20;
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+
+.producer-review-comment {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #cfe8d1;
+    color: #1b5e20;
+    font-weight: bold;
+}
+
+.producer-review-comment-empty {
+    color: #2e7d32;
+    font-style: italic;
+}
+
+.producer-empty-state {
+    background: #f7fff8;
+    border: 1px solid #cfe8d1;
+    border-radius: 10px;
+    padding: 16px;
+    color: #1b5e20;
+    font-weight: bold;
+}
+
+/* --- NOTIFICATIONS STYLES --- */
+
+.notification-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 14px;
+}
+
+.notification-card {
+    background: #ffffff;
+    border: 1px solid #c8e6c9;
+    border-radius: 8px;
+    padding: 14px 16px 28px;
+    position: relative;
+}
+
+.notification-message {
+    color: #1b5e20;
+    font-weight: bold;
+    line-height: 1.45;
+    padding-right: 90px;
+}
+
+.notification-timestamp {
+    position: absolute;
+    right: 12px;
+    bottom: 8px;
+    font-size: 0.75rem;
+    color: #6b7280;
+}
+
+.notification-unread {
+    border-left: 5px solid #2e7d32;
+    background: #f7fff8;
+}
+
+.notification-review {
+    border-color: #a5d6a7;
+    box-shadow: 0 0 0 1px #cfe8d1 inset;
+}
+
+
+/* ============================================================
+   ADMIN DASHBOARD STYLES (BLUE THEME)
+   All admin-specific styling is kept in this section.
+   Blue palette replaces the green used elsewhere.
+   Primary: #1565c0  Light BG: #e3f2fd  Dark: #0d47a1
+   Border: #90caf9   Accent BG: #bbdefb
+   ============================================================ */
+
+/* --- ADMIN PAGE WRAPPER --- */
+.admin-page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 10px 0;
+}
+
+/* --- ADMIN PANEL (SHARED SECTION BOX) --- */
+.admin-panel {
+    background: #ffffff;
+    border: 1px solid #90caf9;
+    border-radius: 8px;
+    padding: 24px 28px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.admin-panel h2 {
+    margin-top: 0;
+    color: #0d47a1;
+    border-bottom: 2px solid #bbdefb;
+    padding-bottom: 8px;
+    margin-bottom: 16px;
+    font-size: 1.25rem;
+}
+
+/* --- ADMIN WELCOME BANNER --- */
+.admin-welcome {
+    background: #e3f2fd;
+    border-left: 5px solid #1565c0;
+}
+
+.admin-welcome h1 {
+    margin: 0 0 6px;
+    color: #0d47a1;
+    font-size: 1.5rem;
+}
+
+.admin-welcome p {
+    margin: 0;
+    color: #37474f;
+}
+
+/* --- ADMIN KPI CARDS --- */
+.admin-kpi-row {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.admin-kpi-card {
+    flex: 1 1 180px;
+    background: #e3f2fd;
+    border: 1px solid #90caf9;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+}
+
+.admin-kpi-label {
+    margin: 0 0 4px;
+    font-size: 0.85rem;
+    color: #546e7a;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.admin-kpi-value {
+    margin: 0;
+    font-size: 2rem;
+    font-weight: bold;
+    color: #1565c0;
+}
+
+/* --- ADMIN PROFILES GRID --- */
+.admin-profiles-grid {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+}
+
+.admin-profile-column {
+    flex: 1 1 300px;
+}
+
+.admin-profile-column h3 {
+    color: #1565c0;
+    margin-top: 0;
+    margin-bottom: 12px;
+    font-size: 1.05rem;
+}
+
+.admin-profile-card {
+    background: #f5f9ff;
+    border: 1px solid #bbdefb;
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin-bottom: 10px;
+}
+
+.admin-profile-card strong {
+    color: #0d47a1;
+}
+
+.admin-meta {
+    font-size: 0.82rem;
+    color: #607d8b;
+}
+
+/* --- ADMIN ORDER HISTORY TABLE --- */
+.admin-table-wrap {
+    overflow-x: auto;
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.92rem;
+}
+
+.admin-table th {
+    background: #1565c0;
+    color: #ffffff;
+    text-align: left;
+    padding: 10px 14px;
+    font-weight: 600;
+}
+
+.admin-table th:first-child {
+    border-radius: 6px 0 0 0;
+}
+
+.admin-table th:last-child {
+    border-radius: 0 6px 0 0;
+}
+
+.admin-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.admin-table tbody tr:hover {
+    background: #e3f2fd;
+}
+
+.admin-status-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: #bbdefb;
+    color: #0d47a1;
+}
+
+/* --- ADMIN SIDEBAR LINK OVERRIDES --- */
+/* When the admin sidebar is active, tint links blue */
+.sidebar a[href*="dashboard"] {
+    color: #1565c0;
+}
+
+.sidebar a[href*="dashboard"]:hover,
+.sidebar a[href*="dashboard"]:focus {
+    color: #0d47a1;
+    text-decoration: underline;
+}
+
+/* --- ADMIN QUICK LINK CARDS (DASHBOARD) --- */
+a.admin-quick-link {
+    text-decoration: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    cursor: pointer;
+}
+
+a.admin-quick-link:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(21, 101, 192, 0.25);
+}
+
+/* --- ADMIN REPORT FORM --- */
+.admin-report-form-row {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+}
+
+.admin-report-field {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 180px;
+}
+
+.admin-report-field label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #37474f;
+    margin-bottom: 4px;
+}
+
+.admin-report-field select,
+.admin-report-field input[type="date"] {
+    padding: 8px 10px;
+    border: 1px solid #90caf9;
+    border-radius: 5px;
+    font-size: 0.92rem;
+    background: #ffffff;
+}
+
+.admin-report-field select:focus,
+.admin-report-field input[type="date"]:focus {
+    outline: none;
+    border-color: #1565c0;
+    box-shadow: 0 0 0 2px rgba(21, 101, 192, 0.2);
+}
+
+.admin-report-submit {
+    flex: 0 0 auto;
+}
+
+.admin-report-btn {
+    padding: 9px 24px;
+    background: #1565c0;
+    color: #ffffff;
+    border: none;
+    border-radius: 5px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.admin-report-btn:hover {
+    background: #0d47a1;
+}
+
+.market-search-field {
+    grid-column: 1 / -1;
+}
+
+.market-filter-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+    align-items: center;
+}
+.market-filter-form {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+}
+
+.surplus-badge {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #dff5d8;
+    color: #256029;
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+
+.old-price {
+    text-decoration: line-through;
+    color: #777;
+    margin-right: 8px;
+}
+
+.discounted-price {
+    color: #c62828;
+    font-weight: 700;
 }

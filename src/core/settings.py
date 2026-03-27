@@ -65,7 +65,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                # CUSTOM CONTEXT PROCESSOR - INJECTS BASKET ITEM COUNT INTO EVERY TEMPLATE
+                # INJECTS BASKET ITEM COUNT INTO EVERY TEMPLATE
                 'marketplace.global_context.basket_count',
             ],
         },
@@ -145,3 +145,7 @@ STATIC_URL = 'static/'
 LOGOUT_REDIRECT_URL = 'home'
 LOGIN_REDIRECT_URL = 'home'
 LOGIN_URL = 'login'
+
+# STRIPE TEST MODE KEYS (OPTIONAL)
+STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY', '')
+STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')

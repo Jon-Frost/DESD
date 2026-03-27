@@ -7,9 +7,23 @@
     <h2 class="auth-title">Market</h2>
     <p class="auth-subtitle">Browse all listings from producers across the network.</p>
 
+
     <!-- MARKET FILTER FORM - USES GET SO FILTERS ARE VISIBLE IN THE URL -->
     <div class="producer-panel market-filter-panel">
         <form method="get" action="{% url 'customer_market' %}" class="market-filter-form">
+            <!-- PRODUCT NAME SEARCH FILTER -->
+            <div class="market-filter-field market-filter-field--full">
+                <label class="auth-label" for="search">Search by Product Name</label>
+                <input
+                    class="auth-field"
+                    type="text"
+                    name="search"
+                    id="search"
+                    value="{{ selected_filters.search }}"
+                    placeholder="e.g. tomatoes"
+                >
+            </div>
+
             <!-- MINIMUM PRICE FILTER -->
             <div class="market-filter-field">
                 <label class="auth-label" for="min_price">Min Price (£)</label>
@@ -58,6 +72,31 @@
                     {% for category_code, category_label in category_choices %}
                         <option value="{{ category_code }}" {% if selected_filters.category == category_code %}selected{% endif %}>
                             {{ category_label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- SEASON AVAILABILITY RANGE FILTER -->
+            <div class="market-filter-field">
+                <label class="auth-label" for="season_from">Season From</label>
+                <select class="auth-field" name="season_from" id="season_from">
+                    <option value="">Any</option>
+                    {% for season_code, season_label in season_choices %}
+                        <option value="{{ season_code }}" {% if selected_filters.season_from == season_code %}selected{% endif %}>
+                            {{ season_label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="market-filter-field">
+                <label class="auth-label" for="season_to">Season To</label>
+                <select class="auth-field" name="season_to" id="season_to">
+                    <option value="">Any</option>
+                    {% for season_code, season_label in season_choices %}
+                        <option value="{{ season_code }}" {% if selected_filters.season_to == season_code %}selected{% endif %}>
+                            {{ season_label }}
                         </option>
                     {% endfor %}
                 </select>
@@ -117,7 +156,17 @@
                 <article class="producer-product-card">
                     <div class="producer-product-header">
                         <h3>{{ product.name }}</h3>
-                        <span class="producer-product-price">£{{ product.price }} / {{ product.unit }}</span>
+{% if product.is_surplus and product.discount_percent > 0 %}
+    <span class="producer-product-price">
+        <span class="old-price">£{{ product.price }}</span>
+        <span class="discounted-price">£{{ product.discounted_price|floatformat:2 }}</span> / {{ product.unit }}
+    </span>
+    <p class="producer-product-meta">
+        <strong>Surplus Offer:</strong> {{ product.discount_percent }}% off to reduce food waste
+    </p>
+{% else %}
+    <span class="producer-product-price">£{{ product.price }} / {{ product.unit }}</span>
+{% endif %}
                     </div>
 
                     <p class="producer-product-meta">
@@ -134,6 +183,9 @@
                         {% else %}
                             No
                         {% endif %}
+                    </p>
+                    <p class="producer-product-meta">
+                        <strong>Seasonal Availability:</strong> {{ product.get_seasonal_from_display }} to {{ product.get_seasonal_to_display }}
                     </p>
                     <p class="producer-product-meta">
                         <strong>Producer:</strong>

@@ -17,6 +17,16 @@
         </div>
     {% endif %}
 
+    <!-- RECURRING ORDER SETUP NOTICE - SHOWN WHEN A RECURRING ORDER IS BEING SET UP -->
+    {% if recurring_order_setup %}
+        <div class="market-messages">
+            <p class="market-message market-message--success">
+                <strong>Recurring Order Setup in Progress:</strong> You are setting up a {{ recurring_order_setup.frequency|lower }} recurring order. Complete your payment below to confirm.
+                <a href="{% url 'cancel_recurring_setup' %}" style="margin-left: 15px; text-decoration: underline;">Cancel</a>
+            </p>
+        </div>
+    {% endif %}
+
     {% if basket_items %}
 
         <!-- BASKET ITEMS TABLE - LISTS ALL PRODUCTS THE CUSTOMER HAS ADDED -->
@@ -38,8 +48,15 @@
                         <tr class="basket-row">
                             <td>{{ item.product.name }}</td>
                             <td>{{ item.product.producer.business_name }}</td>
-                            <!-- DISPLAY THE PRICE PER UNIT INCLUDING THE UNIT TYPE -->
-                            <td>£{{ item.product.price }} / {{ item.product.unit }}</td>
+                            <!-- DISPLAY THE SURPLUS-DISCOUNTED PRICE PER UNIT INCLUDING THE UNIT TYPE -->
+                            <td>
+                                {% if item.product.is_surplus and item.product.discount_percent > 0 %}
+                                    <span style="text-decoration: line-through; color: #999;">£{{ item.product.price }}</span>
+                                    £{{ item.product.discounted_price|floatformat:2 }} / {{ item.product.unit }}
+                                {% else %}
+                                    £{{ item.product.price }} / {{ item.product.unit }}
+                                {% endif %}
+                            </td>
                             <td>{{ item.quantity }}</td>
                             <!-- CALCULATE AND DISPLAY THE LINE TOTAL FOR THIS ITEM -->
                             <td>£{{ item.get_subtotal }}</td>
@@ -65,7 +82,7 @@
             <!-- RECURRING ORDER BUTTON - LETS CUSTOMERS SET UP A RECURRING ORDER FROM THEIR BASKET -->
             <div class="basket-recurring-btn-wrapper">
                 <a href="{% url 'setup_recurring_order' %}" class="nav-link">
-                    🔁 Set Up as Recurring Order
+                    Set Up as Recurring Order
                 </a>
             </div>
         </div>
@@ -73,6 +90,23 @@
         <!-- CHECKOUT FORM - COLLECTS DELIVERY ADDRESS, DATE, AND CARD DETAILS -->
         <div class="basket-checkout-panel">
             <h3 class="basket-checkout-title">Checkout Details</h3>
+            {% if stripe_enabled %}
+                <p class="auth-subtitle">You will be redirected to Stripe Test Checkout to complete a placeholder payment.</p>
+            {% else %}
+                <p class="auth-subtitle">Stripe is not active in this runtime, so checkout will complete locally as a placeholder flow.</p>
+            {% endif %}
+
+            {% if stripe_enabled %}
+                <div class="stripe-badge stripe-badge--checkout" role="status" aria-live="polite">
+                    <span class="stripe-badge-logo" aria-hidden="true">Stripe</span>
+                    <span>
+                        Secure checkout powered by Stripe
+                        {% if stripe_test_mode %}
+                            <strong>• Test Mode • No real charge</strong>
+                        {% endif %}
+                    </span>
+                </div>
+            {% endif %}
 
             <form class="auth-form" method="post" action="{% url 'checkout' %}">
                 {% csrf_token %}
@@ -103,6 +137,9 @@
                         {% endfor %}
                     {% endif %}
                 </div>
+
+                {% if not stripe_enabled %}
+                <!-- CARD FIELDS ONLY SHOWN WHEN STRIPE IS NOT ACTIVE (LOCAL FALLBACK FLOW) -->
 
                 <!-- CARD HOLDER NAME FIELD -->
                 <div class="auth-field-group">
@@ -156,10 +193,15 @@
                         {% endif %}
                     </div>
                 </div>
+                {% endif %}
 
                 <!-- PLACE ORDER BUTTON - SUBMITS THE CHECKOUT FORM -->
                 <button class="auth-submit-btn basket-place-order-btn" type="submit">
-                    Place Order — £{{ total }}
+                    {% if stripe_enabled %}
+                        Proceed to Test Payment — £{{ total }}
+                    {% else %}
+                        Place Order — £{{ total }}
+                    {% endif %}
                 </button>
 
             </form>
