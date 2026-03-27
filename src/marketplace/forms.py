@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.models import User
-from .models import Producer, Customer, Product
+from .models import Producer, Customer, Product, Recipe
 import datetime
 
 class ProducerSignupForm(forms.ModelForm):
@@ -164,3 +164,29 @@ class CheckoutForm(forms.Form):
         if len(expiry) != 5 or expiry[2] != '/' or not expiry[:2].isdigit() or not expiry[3:].isdigit():
             raise forms.ValidationError('Please enter expiry in MM/YY format.')
         return expiry
+    
+class RecipeForm(forms.ModelForm):
+    linked_products = forms.ModelMultipleChoiceField(
+        queryset=Product.objects.none(),
+        required=False,
+        widget=forms.CheckboxSelectMultiple(),
+        label='Link to your products'
+    )
+
+    def __init__(self, producer=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if producer:
+            self.fields['linked_products'].queryset = Product.objects.filter(producer=producer)
+        for field_name, field in self.fields.items():
+            if not isinstance(field.widget, (forms.CheckboxInput, forms.CheckboxSelectMultiple)):
+                field.widget.attrs.update({'class': 'auth-field'})
+
+
+    class Meta:
+        model = Recipe
+        fields = ['title', 'description', 'ingredients', 'instructions', 'seasonal_tag', 'linked_products']
+        widgets = {
+            'description': forms.Textarea(attrs={'rows': 3}),
+            'ingredients': forms.Textarea(attrs={'rows': 5}),
+            'instructions': forms.Textarea(attrs={'rows': 6}),
+        }

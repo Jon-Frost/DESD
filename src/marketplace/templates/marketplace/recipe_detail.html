@@ -1,0 +1,50 @@
+{% extends 'marketplace/base.html' %}
+{% block content %}
+
+<div class="order-card">
+    <div class="order-header">
+        <span><h2>{{ recipe.title }}</h2></span>
+        <span>By: <strong>{{ recipe.producer.business_name }}</strong></span>
+        <span>Season: <strong>{{ recipe.get_seasonal_tag_display }}</strong></span>
+        <span>Added: {{ recipe.created_at|date:"d M Y" }}</span>
+    </div>
+
+    <div class="order-footer">
+        <h3>About this Recipe</h3>
+        <p>{{ recipe.description }}</p>
+
+        <h3>Ingredients</h3>
+        <pre style="white-space: pre-wrap; font-family: inherit;">{{ recipe.ingredients }}</pre>
+
+        <h3>Instructions</h3>
+        <pre style="white-space: pre-wrap; font-family: inherit;">{{ recipe.instructions }}</pre>
+
+        {% if linked_products %}
+        <h3>Products Used in this Recipe</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>Producer</th>
+                    <th>Price</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for product in linked_products %}
+                <tr>
+                    <td>{{ product.name }}</td>
+                    <td>{{ product.producer.business_name }}</td>
+                    <td>£{{ product.price }} / {{ product.unit }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+
+        <br>
+        <a href="{% url 'recipe_list' %}" class="nav-link">Back to Recipes</a>
+        <a href="{% url 'producer_bio_public' recipe.producer.id %}" class="nav-link">View Producer Profile</a>
+    </div>
+</div>
+
+{% endblock %}

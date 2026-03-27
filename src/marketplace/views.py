@@ -3,8 +3,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from decimal import Decimal, InvalidOperation
 from django.db.models import Q
-from .models import Producer, Customer, Product, BasketItem, CustomerOrder, OrderItem, RecurringOrder, RecurringOrderItem, Notification
-from .forms import CustomerSignupForm, ProducerSignupForm, ProductForm, ProducerBioForm, CheckoutForm
+from .models import Producer, Customer, Product, BasketItem, CustomerOrder, OrderItem, RecurringOrder, RecurringOrderItem, Notification, Recipe
+from .forms import CustomerSignupForm, ProducerSignupForm, ProductForm, ProducerBioForm, CheckoutForm, RecipeForm
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from django.http import HttpResponse
@@ -927,4 +927,115 @@ def notifications(request):
         request,
         'marketplace/notifications.html',
         {'notifications': user_notifications}
+    )
+
+
+@login_required
+def add_recipe(request):
+    producer_profile = _get_logged_in_producer(request.user)
+    if producer_profile is None:
+        return redirect('home')
+
+    producer_recipes = Recipe.objects.filter(producer=producer_profile).order_by('-created_at')
+
+    if request.method == 'POST':
+        form = RecipeForm(producer=producer_profile, data=request.POST)
+        if form.is_valid():
+            recipe = form.save(commit=False)
+            recipe.producer = producer_profile
+            recipe.save()
+            form.save_m2m()
+            messages.success(request, f'Recipe "{recipe.title}" added successfully.')
+            return redirect('add_recipe')
+    else:
+        form = RecipeForm(producer=producer_profile)
+
+    return render(
+        request,
+        'marketplace/producer_add_recipe.html',
+        {
+            'form': form,
+            'producer_recipes': producer_recipes,
+        }
+    )
+
+
+# PRODUCER - EDIT RECIPE VIEW
+@login_required
+def edit_recipe(request, recipe_id):
+    producer_profile = _get_logged_in_producer(request.user)
+    if producer_profile is None:
+        return redirect('home')
+
+    recipe = get_object_or_404(Recipe, id=recipe_id, producer=producer_profile)
+
+    if request.method == 'POST':
+        form = RecipeForm(producer=producer_profile, data=request.POST, instance=recipe)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Recipe "{recipe.title}" updated successfully.')
+            return redirect('add_recipe')
+    else:
+        form = RecipeForm(producer=producer_profile, instance=recipe)
+
+    return render(
+        request,
+        'marketplace/producer_edit_recipe.html',
+        {
+            'form': form,
+            'recipe': recipe,
+        }
+    )
+
+
+# PRODUCER - DELETE RECIPE VIEW
+@login_required
+def delete_recipe(request, recipe_id):
+    producer_profile = _get_logged_in_producer(request.user)
+    if producer_profile is None:
+        return redirect('home')
+
+    recipe = get_object_or_404(Recipe, id=recipe_id, producer=producer_profile)
+
+    if request.method == 'POST':
+        recipe.delete()
+        messages.success(request, f'Recipe "{recipe.title}" deleted.')
+
+    return redirect('add_recipe')
+
+
+# CUSTOMER - VIEW ALL RECIPES
+@login_required
+def recipe_list(request):
+    season_input = request.GET.get('season', '').strip()
+    recipes = Recipe.objects.select_related('producer').order_by('-created_at')
+
+    valid_seasons = {choice[0] for choice in Recipe.SEASON_CHOICES}
+    if season_input in valid_seasons:
+        recipes = recipes.filter(seasonal_tag=season_input)
+
+    return render(
+        request,
+        'marketplace/recipe_list.html',
+        {
+            'recipes': recipes,
+            'season_choices': Recipe.SEASON_CHOICES,
+            'selected_season': season_input,
+        }
+    )
+
+
+# CUSTOMER - VIEW SINGLE RECIPE
+@login_required
+def recipe_detail(request, recipe_id):
+    recipe = get_object_or_404(Recipe, id=recipe_id)
+    linked_products = recipe.linked_products.all()
+
+    return render(
+        request,
+        'marketplace/recipe_detail.html',
+        {
+            'recipe': recipe,
+            'linked_products': linked_products,
+        }
     )
