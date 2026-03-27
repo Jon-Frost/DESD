@@ -55,10 +55,10 @@ The Bristol Regional Food Network (BRFN) is in need of an online marketplace to 
 13. TC-013 -
 14. TC-014 - Passed
 15. TC-015 - Passed
-16. TC-016 -
+16. TC-016 - Passed
 17. TC-017 - Passed
-18. TC-018 -
-19. TC-019 -
+18. TC-018 - Passed
+19. TC-019 - Passed
 20. TC-020 -
 21. TC-021 - Passed
 22. TC-022 - Passed
