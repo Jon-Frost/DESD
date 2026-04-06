@@ -1,67 +1,86 @@
-Producer orders · HTML
-Copy
-
 {% extends 'marketplace/base.html' %}
+
+{% block title %}Incoming Orders - Bristol Food Network{% endblock %}
+
 {% block content %}
-<h2>Incoming Orders</h2>
- 
-{% if orders %}
-    {% for entry in orders %}
-    {% with order=entry.order %}
-    <div class="order-card">
-        <div class="order-header">
-            <span><strong>Order #{{ order.id }}</strong></span>
-            <span>Customer: <strong>{{ order.customer.name }}</strong></span>
-            <span>Ordered: {{ order.created_at|date:"d M Y" }}</span>
-            <span>Delivery: <strong>{{ order.preferred_delivery_date|date:"d M Y" }}</strong></span>
-            <span>Status: <strong>{{ order.get_status_display }}</strong></span>
-        </div>
- 
-        <table>
-            <thead>
-                <tr>
-                    <th>Product</th>
-                    <th>Qty</th>
-                    <th>Unit Price</th>
-                    <th>Subtotal</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in entry.items %}
-                <tr>
-                    <td>{{ item.product.name }}</td>
-                    <td>{{ item.quantity }}</td>
-                    <td>£{{ item.unit_price }}</td>
-                    <td>£{{ item.get_subtotal }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
- 
-        <div class="order-footer">
-            <p>Deliver to: {{ order.delivery_address }}</p>
-            <p>Contact: {{ order.customer.email }}</p>
-            {% if order.customer.phone_number %}
-                <p>Phone: {{ order.customer.phone_number }}</p>
-            {% endif %}
- 
-            <form method="post" action="{% url 'update_order_status' order.id %}">
-                {% csrf_token %}
-                <select name="status">
-                    <option value="PENDING" {% if order.status == 'PENDING' %}selected{% endif %}>Pending</option>
-                    <option value="CONFIRMED" {% if order.status == 'CONFIRMED' %}selected{% endif %}>Confirmed</option>
-                    <option value="READY" {% if order.status == 'READY' %}selected{% endif %}>Ready for Delivery</option>
-                    <option value="DELIVERED" {% if order.status == 'DELIVERED' %}selected{% endif %}>Delivered</option>
-                </select>
-                <button type="submit">Update Status</button>
-            </form>
-        </div>
+<div class="producer-orders-page">
+    <div class="producer-orders-header">
+        <h2>Incoming Orders</h2>
+        <p>Review active customer orders for your products.</p>
     </div>
-    {% endwith %}
-    {% endfor %}
- 
-{% else %}
-    <p>No incoming orders yet.</p>
-{% endif %}
- 
+
+    {% if orders %}
+        <div class="producer-orders-list">
+            {% for entry in orders %}
+                {% with order=entry.order %}
+                <article class="producer-order-card">
+                    <div class="producer-order-top">
+                        <div>
+                            <h3>Order #{{ order.id }}</h3>
+                            <p><strong>Customer:</strong> {{ order.customer.name }}</p>
+                        </div>
+                        <div class="producer-order-status">
+                            {{ order.get_status_display }}
+                        </div>
+                    </div>
+
+                    <div class="producer-order-meta">
+                        <span><strong>Ordered:</strong> {{ order.created_at|date:"d M Y" }}</span>
+                        <span><strong>Delivery:</strong> {{ order.preferred_delivery_date|date:"d M Y" }}</span>
+                    </div>
+
+                    <div class="producer-order-table-wrap">
+                        <table class="producer-order-table">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Qty</th>
+                                    <th>Unit Price</th>
+                                    <th>Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in entry.items %}
+                                <tr>
+                                    <td>{{ item.product.name }}</td>
+                                    <td>{{ item.quantity }}</td>
+                                    <td>£{{ item.unit_price }}</td>
+                                    <td>£{{ item.get_subtotal }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="producer-order-footer">
+                        <div class="producer-order-contact">
+                            <p><strong>Deliver to:</strong> {{ order.delivery_address }}</p>
+                            <p><strong>Email:</strong> {{ order.customer.email }}</p>
+                            {% if order.customer.phone_number %}
+                                <p><strong>Phone:</strong> {{ order.customer.phone_number }}</p>
+                            {% endif %}
+                        </div>
+
+                        <form method="post" action="{% url 'update_order_status' order.id %}" class="producer-order-form">
+                            {% csrf_token %}
+                            <label for="status-{{ order.id }}"><strong>Update status</strong></label>
+                            <select name="status" id="status-{{ order.id }}" class="producer-order-select">
+                                <option value="PENDING" {% if order.status == 'PENDING' %}selected{% endif %}>Pending</option>
+                                <option value="CONFIRMED" {% if order.status == 'CONFIRMED' %}selected{% endif %}>Confirmed</option>
+                                <option value="READY" {% if order.status == 'READY' %}selected{% endif %}>Ready for Delivery</option>
+                                <option value="DELIVERED" {% if order.status == 'DELIVERED' %}selected{% endif %}>Delivered</option>
+                            </select>
+                            <button type="submit" class="producer-order-btn">Update Status</button>
+                        </form>
+                    </div>
+                </article>
+                {% endwith %}
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="producer-orders-empty">
+            <p>No incoming orders yet.</p>
+        </div>
+    {% endif %}
+</div>
 {% endblock %}
