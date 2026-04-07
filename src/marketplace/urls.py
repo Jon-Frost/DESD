@@ -32,6 +32,7 @@ urlpatterns = [
     path('orders/<int:order_id>/reorder/', views.reorder, name='reorder'),
     path('orders/<int:order_id>/receipt/', views.download_receipt, name='download_receipt'),
     path('producer/orders/', views.producer_orders, name='producer_orders'),
+    path('producer/orders/completed/', views.producer_completed_orders, name='producer_completed_orders'),
     path('producer/reviews/', views.producer_reviews, name='producer_reviews'),
     path('producer/orders/<int:order_id>/update/', views.update_order_status, name='update_order_status'),
     path('producer/settlements/', views.payment_settlements, name='payment_settlements'),
