@@ -56,7 +56,7 @@
                     <li><a href="{% url 'home' %}" class="nav-link">Home</a></li>
                 {% endif %}
                 {% if user.is_authenticated and is_producer %}
-                    <li><a href="{% url 'add_product' %}" class="nav-link">+ Add Product</a></li>
+                    <li><a href="{% url 'add_product' %}" class="nav-link">Add Product</a></li>
                     <li><a href="{% url 'producer_bio' %}" class="nav-link">My Bio</a></li>
                     <li><a href="{% url 'producer_orders' %}" class="nav-link">Incoming Orders</a></li>
                     <li><a href="{% url 'producer_reviews' %}" class="nav-link">Customer Reviews</a></li>

@@ -1100,10 +1100,12 @@ def producer_orders(request):
 
     # GET ALL ORDER ITEMS FOR THIS PRODUCER'S PRODUCTS
     order_items = OrderItem.objects.filter(
-        product__producer=producer_profile
-    ).select_related(
-        'order__customer', 'product'
-    ).order_by('order__preferred_delivery_date')
+    product__producer=producer_profile
+).exclude(
+    order__status='DELIVERED'
+).select_related(
+    'order__customer', 'product'
+).order_by('order__preferred_delivery_date')
 
     # GROUP ORDER ITEMS BY ORDER
     orders_dict = {}

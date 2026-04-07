@@ -486,6 +486,27 @@ body {
     font-style: italic;
 }
 
+.home-action-button {
+    display: inline-block;
+    background: #2e7d32;
+    color: #ffffff;
+    text-decoration: none;
+    font-weight: bold;
+    padding: 10px 16px;
+    border-radius: 6px;
+    border: 1px solid #2e7d32;
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.home-action-button:hover,
+.home-action-button:focus {
+    background: #1b5e20;
+    border-color: #1b5e20;
+    color: #ffffff;
+    text-decoration: none;
+    transform: translateY(-1px);
+}
+
 /* --- STRIPE PAYMENT BADGES --- */
 
 .stripe-badge {
@@ -1502,4 +1523,150 @@ a.admin-quick-link:hover {
 .discounted-price {
     color: #c62828;
     font-weight: 700;
+}
+
+/* --- PRODUCER ORDERS PAGE --- */
+
+.producer-orders-page {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.producer-orders-header,
+.producer-orders-empty,
+.producer-order-card {
+    background: #ffffff;
+    border: 1px solid #c8e6c9;
+    border-radius: 8px;
+    padding: 18px;
+}
+
+.producer-orders-header h2 {
+    margin: 0 0 6px;
+    color: #1b5e20;
+}
+
+.producer-orders-header p,
+.producer-orders-empty p {
+    margin: 0;
+    color: #555;
+}
+
+.producer-orders-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.producer-order-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+
+.producer-order-top h3 {
+    margin: 0 0 6px;
+    color: #2e7d32;
+}
+
+.producer-order-top p {
+    margin: 0;
+    color: #444;
+}
+
+.producer-order-status {
+    background: #f4faf4;
+    color: #1b5e20;
+    border: 1px solid #d8ead9;
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+.producer-order-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 14px;
+    color: #444;
+}
+
+.producer-order-table-wrap {
+    overflow-x: auto;
+}
+
+.producer-order-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 16px;
+}
+
+.producer-order-table th,
+.producer-order-table td {
+    padding: 12px;
+    border-bottom: 1px solid #e5e5e5;
+    text-align: left;
+}
+
+.producer-order-table th {
+    background: #f6faf6;
+    color: #1b5e20;
+}
+
+.producer-order-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+}
+
+.producer-order-contact p {
+    margin: 0 0 6px;
+    color: #444;
+}
+
+.producer-order-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 220px;
+}
+
+.producer-order-select {
+    padding: 10px;
+    border: 1px solid #c8d0c8;
+    border-radius: 5px;
+    background: #ffffff;
+}
+
+.producer-order-btn {
+    background: #2e7d32;
+    color: #ffffff;
+    border: none;
+    border-radius: 5px;
+    padding: 10px 14px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.producer-order-btn:hover,
+.producer-order-btn:focus {
+    background: #1b5e20;
+}
+
+@media (max-width: 768px) {
+    .producer-order-top,
+    .producer-order-footer {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .producer-order-form {
+        min-width: 100%;
+    }
 }
