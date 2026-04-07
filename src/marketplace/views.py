@@ -1127,6 +1127,41 @@ def producer_orders(request):
     )
 
 
+# PRODUCER COMPLETED ORDERS VIEW - SHOWS DELIVERED ORDERS FOR THE PRODUCER
+@login_required
+def producer_completed_orders(request):
+    producer_profile = _get_logged_in_producer(request.user)
+    if producer_profile is None:
+        return redirect('home')
+
+    # GET ALL DELIVERED ORDER ITEMS FOR THIS PRODUCER'S PRODUCTS
+    order_items = OrderItem.objects.filter(
+        product__producer=producer_profile,
+        order__status='DELIVERED'
+    ).select_related(
+        'order__customer', 'product'
+    ).order_by('-order__preferred_delivery_date')
+
+    # GROUP ORDER ITEMS BY ORDER
+    orders_dict = {}
+    for item in order_items:
+        order = item.order
+        if order.id not in orders_dict:
+            orders_dict[order.id] = {
+                'order': order,
+                'items': []
+            }
+        orders_dict[order.id]['items'].append(item)
+
+    orders = list(orders_dict.values())
+
+    return render(
+        request,
+        'marketplace/producer_completed_orders.html',
+        {'orders': orders}
+    )
+
+
 # UPDATE ORDER STATUS VIEW - ALLOWS PRODUCERS TO UPDATE THE STATUS OF AN ORDER
 @login_required
 def update_order_status(request, order_id):
