@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.conf import settings
 from decimal import Decimal, InvalidOperation
 from django.db.models import Q
-from .models import Producer, Customer, Product, BasketItem, CustomerOrder, OrderItem, RecurringOrder, RecurringOrderItem, Notification, Recipe
+from .models import Producer, Customer, Product, BasketItem, CustomerOrder, OrderItem, RecurringOrder, RecurringOrderItem, Notification, Recipe, RecipeImage
 from .forms import CustomerSignupForm, ProducerSignupForm, ProductForm, ProducerBioForm, CheckoutForm, RecipeForm
 from django.db.models import Q, Sum
 from django.contrib.auth.models import User
@@ -266,7 +266,7 @@ def add_product(request):
     producer_products = producer_profile.products.order_by('name')
 
     if request.method == 'POST':
-        form = ProductForm(request.POST)
+        form = ProductForm(request.POST, request.FILES)
         if form.is_valid():
             product = form.save(commit=False)
             product.producer = producer_profile
@@ -417,7 +417,7 @@ def edit_product(request, product_id):
     product = get_object_or_404(Product, id=product_id, producer=producer_profile)
 
     if request.method == 'POST':
-        form = ProductForm(request.POST, instance=product)
+        form = ProductForm(request.POST, request.FILES, instance=product)
         if form.is_valid():
             form.save()
             return redirect('add_product')
@@ -1560,15 +1560,19 @@ def add_recipe(request):
     if producer_profile is None:
         return redirect('home')
 
-    producer_recipes = Recipe.objects.filter(producer=producer_profile).order_by('-created_at')
+    producer_recipes = Recipe.objects.filter(producer=producer_profile).prefetch_related('images').order_by('-created_at')
 
     if request.method == 'POST':
-        form = RecipeForm(producer=producer_profile, data=request.POST)
+        form = RecipeForm(producer=producer_profile, data=request.POST, files=request.FILES)
         if form.is_valid():
             recipe = form.save(commit=False)
             recipe.producer = producer_profile
             recipe.save()
             form.save_m2m()
+
+            for uploaded_image in form.cleaned_data.get('images', []):
+                RecipeImage.objects.create(recipe=recipe, image=uploaded_image)
+
             messages.success(request, f'Recipe "{recipe.title}" added successfully.')
             return redirect('add_recipe')
     else:
@@ -1594,9 +1598,13 @@ def edit_recipe(request, recipe_id):
     recipe = get_object_or_404(Recipe, id=recipe_id, producer=producer_profile)
 
     if request.method == 'POST':
-        form = RecipeForm(producer=producer_profile, data=request.POST, instance=recipe)
+        form = RecipeForm(producer=producer_profile, data=request.POST, files=request.FILES, instance=recipe)
         if form.is_valid():
             form.save()
+
+            for uploaded_image in form.cleaned_data.get('images', []):
+                RecipeImage.objects.create(recipe=recipe, image=uploaded_image)
+
             messages.success(request, f'Recipe "{recipe.title}" updated successfully.')
             return redirect('add_recipe')
     else:
@@ -1632,7 +1640,7 @@ def delete_recipe(request, recipe_id):
 @login_required
 def recipe_list(request):
     season_input = request.GET.get('season', '').strip()
-    recipes = Recipe.objects.select_related('producer').order_by('-created_at')
+    recipes = Recipe.objects.select_related('producer').prefetch_related('images').order_by('-created_at')
 
     valid_seasons = {choice[0] for choice in Recipe.SEASON_CHOICES}
     if season_input in valid_seasons:
@@ -1652,7 +1660,7 @@ def recipe_list(request):
 # CUSTOMER - VIEW SINGLE RECIPE
 @login_required
 def recipe_detail(request, recipe_id):
-    recipe = get_object_or_404(Recipe, id=recipe_id)
+    recipe = get_object_or_404(Recipe.objects.prefetch_related('images'), id=recipe_id)
     linked_products = recipe.linked_products.all()
 
     return render(

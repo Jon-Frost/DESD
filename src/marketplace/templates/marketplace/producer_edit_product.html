@@ -7,7 +7,7 @@
     <h2 class="auth-title">Edit Listing</h2>
     <p class="auth-subtitle">Update your product details below.</p>
 
-    <form method="post" class="auth-form">
+    <form method="post" class="auth-form" enctype="multipart/form-data">
         {% csrf_token %}
 
         {% for field in form %}

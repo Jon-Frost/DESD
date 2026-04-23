@@ -4,7 +4,7 @@
 
 <div class="order-card">
     <h3>Add New Recipe</h3>
-    <form method="post" class="auth-form">
+    <form method="post" class="auth-form" enctype="multipart/form-data">
         {% csrf_token %}
 
         <div class="auth-field-group">
@@ -42,6 +42,12 @@
             {{ form.linked_products }}
         </div>
 
+        <div class="auth-field-group">
+            <label class="auth-label" for="{{ form.images.id_for_label }}">{{ form.images.label }}</label>
+            {{ form.images }}
+            {% for error in form.images.errors %}<p class="field-error-msg">{{ error }}</p>{% endfor %}
+        </div>
+
         <button type="submit" class="auth-submit-btn">Add Recipe</button>
     </form>
 </div>
@@ -56,6 +62,16 @@
         <span>{{ recipe.created_at|date:"d M Y" }}</span>
     </div>
     <div class="order-footer">
+        {% if recipe.images.all %}
+            <div class="product-image-container" style="margin-bottom: 12px;">
+                <img src="{{ recipe.images.first.image.url }}" alt="Image of {{ recipe.title }}" style="max-width: 100%; height: 200px; object-fit: cover; border-radius: 8px;">
+            </div>
+        {% elif recipe.image %}
+            <div class="product-image-container" style="margin-bottom: 12px;">
+                <img src="{{ recipe.image.url }}" alt="Image of {{ recipe.title }}" style="max-width: 100%; height: 200px; object-fit: cover; border-radius: 8px;">
+            </div>
+        {% endif %}
+
         <p>{{ recipe.description|truncatewords:20 }}</p>
         <a href="{% url 'edit_recipe' recipe.id %}" class="nav-link">Edit</a>
         <form method="post" action="{% url 'delete_recipe' recipe.id %}" style="display:inline;">

@@ -168,7 +168,11 @@
     <span class="producer-product-price">£{{ product.price }} / {{ product.unit }}</span>
 {% endif %}
                     </div>
-
+                    {% if product.image %}
+                        <div class="product-image-container" style="margin: 15px 0;">
+                            <img src="{{ product.image.url }}" alt="Image of {{ product.name }}" style="max-width: 100%; height: 200px; object-fit: cover; border-radius: 8px;">
+                        </div>
+                    {% endif %}
                     <p class="producer-product-meta">
                         <strong>Category:</strong> {{ product.get_category_display }}
                     </p>

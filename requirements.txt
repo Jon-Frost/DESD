@@ -5,3 +5,6 @@ django-phonenumber-field[phonenumbers]
 # lighter
 reportlab
 stripe
+cloudinary
+django-cloudinary-storage
+Pillow
