@@ -3,6 +3,19 @@ from django.contrib.auth.models import User
 from .models import Producer, Customer, Product, Recipe
 import datetime
 
+
+class MultipleFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+
+class MultipleFileField(forms.FileField):
+    def clean(self, data, initial=None):
+        single_file_clean = super().clean
+        if isinstance(data, (list, tuple)):
+            return [single_file_clean(item, initial) for item in data if item]
+        cleaned_file = single_file_clean(data, initial)
+        return [cleaned_file] if cleaned_file else []
+
 class ProducerSignupForm(forms.ModelForm):
     username = forms.CharField(max_length=150)
     password = forms.CharField(widget=forms.PasswordInput)
@@ -104,6 +117,7 @@ class ProductForm(forms.ModelForm):
             'allergens',
             'is_surplus',
             'discount_percent',
+            'image',
         ]
         widgets = {
             'description': forms.Textarea(attrs={'rows': 3}),
@@ -199,6 +213,12 @@ class CheckoutForm(forms.Form):
         return expiry
     
 class RecipeForm(forms.ModelForm):
+    images = MultipleFileField(
+        required=False,
+        widget=MultipleFileInput(attrs={'class': 'auth-field', 'accept': 'image/*'}),
+        label='Recipe Images (upload one or more)'
+    )
+
     linked_products = forms.ModelMultipleChoiceField(
         queryset=Product.objects.none(),
         required=False,

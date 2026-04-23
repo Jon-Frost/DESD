@@ -21,6 +21,16 @@
             <span>{{ recipe.get_seasonal_tag_display }}</span>
         </div>
         <div class="order-footer">
+            {% if recipe.images.all %}
+                <div class="product-image-container" style="margin-bottom: 12px;">
+                    <img src="{{ recipe.images.first.image.url }}" alt="Image of {{ recipe.title }}" style="max-width: 100%; height: 220px; object-fit: cover; border-radius: 8px;">
+                </div>
+            {% elif recipe.image %}
+                <div class="product-image-container" style="margin-bottom: 12px;">
+                    <img src="{{ recipe.image.url }}" alt="Image of {{ recipe.title }}" style="max-width: 100%; height: 220px; object-fit: cover; border-radius: 8px;">
+                </div>
+            {% endif %}
+
             <p>{{ recipe.description|truncatewords:25 }}</p>
             {% if recipe.linked_products.all %}
                 <p>Uses:
