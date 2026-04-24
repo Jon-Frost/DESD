@@ -1,74 +1,89 @@
 {% extends 'marketplace/base.html' %}
+
+{% block title %}Set Up Recurring Order - Bristol Food Network{% endblock %}
+
 {% block content %}
-<h2>Set Up Recurring Order</h2>
+<div class="basket-page-container">
+    <h2 class="auth-title">Set Up Recurring Order</h2>
+    <p class="auth-subtitle">Confirm your basket items and choose how often we should repeat this order.</p>
 
-<div class="order-card">
-    <div class="order-header">
-        <span><strong>Items in this recurring order</strong></span>
-    </div>
-    <table>
-        <thead>
-            <tr>
-                <th>Product</th>
-                <th>Producer</th>
-                <th>Qty</th>
-                <th>Unit Price</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for item in basket_items %}
-            <tr>
-                <td>{{ item.product.name }}</td>
-                <td>{{ item.product.producer.business_name }}</td>
-                <td>{{ item.quantity }}</td>
-                <td>£{{ item.product.price }}</td>
-            </tr>
+    {% if messages %}
+        <div class="market-messages">
+            {% for message in messages %}
+                <p class="market-message market-message--{{ message.tags }}">{{ message }}</p>
             {% endfor %}
-        </tbody>
-    </table>
-</div>
+        </div>
+    {% endif %}
 
-<div class="order-card">
-    <form method="post">
-        {% csrf_token %}
-
-        <div class="form-group">
-            <label for="frequency"><strong>Frequency</strong></label>
-            <select name="frequency" id="frequency" class="auth-field">
-                {% for value, label in frequency_choices %}
-                    <option value="{{ value }}">{{ label }}</option>
+    <div class="basket-panel">
+        <table class="basket-table">
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>Producer</th>
+                    <th>Quantity</th>
+                    <th>Unit Price</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in basket_items %}
+                    <tr>
+                        <td>{{ item.product.name }}</td>
+                        <td>{{ item.product.producer.business_name }}</td>
+                        <td>{{ item.quantity }}</td>
+                        <td>£{{ item.product.price }}</td>
+                    </tr>
                 {% endfor %}
-            </select>
-        </div>
+            </tbody>
+        </table>
+    </div>
 
-        <div class="form-group">
-            <label for="next_order_date"><strong>First Delivery Date</strong></label>
-            <input
-                type="date"
-                name="next_order_date"
-                id="next_order_date"
-                class="auth-field"
-                min="{{ min_date }}"
-                required
-            >
-            <small>Must be at least 48 hours from today</small>
-        </div>
+    <div class="basket-checkout-panel">
+        <h3 class="basket-checkout-title">Recurring Order Details</h3>
 
-        <div class="form-group">
-            <label for="delivery_address"><strong>Delivery Address</strong></label>
-            <input
-                type="text"
-                name="delivery_address"
-                id="delivery_address"
-                class="auth-field"
-                value="{{ delivery_address }}"
-                required
-            >
-        </div>
+        <form class="auth-form" method="post">
+            {% csrf_token %}
 
-        <button type="submit" class="confirm-btn">Confirm Recurring Order</button>
-        <a href="{% url 'view_basket' %}" class="cancel-btn">Cancel</a>
-    </form>
+            <div class="auth-field-group">
+                <label class="auth-label" for="frequency">Frequency</label>
+                <select name="frequency" id="frequency" class="auth-field" required>
+                    {% for value, label in frequency_choices %}
+                        <option value="{{ value }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="auth-field-group">
+                <label class="auth-label" for="next_order_date">First Delivery Date</label>
+                <input
+                    type="date"
+                    id="next_order_date"
+                    class="auth-field"
+                    min="{{ min_date }}"
+                    value="{{ prefilled_first_delivery_date }}"
+                    disabled
+                >
+                <input type="hidden" name="locked_next_order_date" value="{{ prefilled_first_delivery_date }}">
+                
+            </div>
+
+            <div class="auth-field-group">
+                <label class="auth-label" for="delivery_address">Delivery Address</label>
+                <input
+                    type="text"
+                    name="delivery_address"
+                    id="delivery_address"
+                    class="auth-field"
+                    value="{{ delivery_address }}"
+                    required
+                >
+            </div>
+
+            <button type="submit" class="auth-submit-btn">Confirm Recurring Order</button>
+            <p class="auth-footer-text">
+                <a href="{% url 'view_basket' %}">Cancel and return to basket</a>
+            </p>
+        </form>
+    </div>
 </div>
-
 {% endblock %}

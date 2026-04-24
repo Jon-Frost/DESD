@@ -120,7 +120,7 @@ def _create_customer_order_from_basket(customer_profile, basket_items, form_clea
 
     order = CustomerOrder.objects.create(
         customer=customer_profile,
-        delivery_address=form_cleaned_data['delivery_address'],
+        delivery_address=customer_profile.address,
         preferred_delivery_date=form_cleaned_data['preferred_delivery_date'],
         card_holder_name=form_cleaned_data.get('card_holder_name') or 'Stripe Checkout',
         card_number_last4=(form_cleaned_data.get('card_number', '')[-4:] or '4242'),
@@ -177,6 +177,35 @@ def _create_recurring_order_if_requested(request, customer_profile, order):
         request,
         f'Recurring {recurring_data["frequency"].lower()} order created successfully!'
     )
+
+
+def _get_matching_recurring_order(order, producer_items, producer_profile):
+    # MATCH THE INITIAL CONFIRMED ORDER TO ITS RECURRING TEMPLATE SO PRODUCERS CAN SEE IT IN INCOMING ORDERS
+    producer_item_quantities = {
+        item.product_id: item.quantity
+        for item in producer_items
+    }
+
+    if not producer_item_quantities:
+        return None
+
+    recurring_orders = RecurringOrder.objects.filter(
+        customer=order.customer,
+        delivery_address=order.delivery_address,
+        next_order_date=order.preferred_delivery_date,
+    ).prefetch_related('items__product')
+
+    for recurring_order in recurring_orders:
+        recurring_item_quantities = {
+            recurring_item.product_id: recurring_item.quantity
+            for recurring_item in recurring_order.items.all()
+            if recurring_item.product.producer_id == producer_profile.id
+        }
+
+        if recurring_item_quantities == producer_item_quantities:
+            return recurring_order
+
+    return None
 
 
 def home(request):
@@ -641,11 +670,18 @@ def view_basket(request):
     # CALCULATE THE GRAND TOTAL ACROSS ALL BASKET ITEMS
     total = sum(item.get_subtotal() for item in basket_items)
 
-    # INITIALISE A BLANK CHECKOUT FORM FOR THE CUSTOMER TO FILL IN
-    form = CheckoutForm()
-
     # CHECK IF A RECURRING ORDER SETUP IS IN PROGRESS
     recurring_order_setup = request.session.get('recurring_order_data', None)
+
+    # PRE-FILL THE PREFERRED DELIVERY DATE FROM THE RECURRING ORDER DATE IF ONE IS IN PROGRESS
+    # OR FROM A QUERY PARAM PASSED AFTER CANCELLING A RECURRING ORDER VIA THE UPDATE DATE BUTTON
+    form_initial = {}
+    preferred_date_param = request.GET.get('preferred_delivery_date', '').strip()
+    if preferred_date_param:
+        form_initial['preferred_delivery_date'] = preferred_date_param
+    elif recurring_order_setup and recurring_order_setup.get('next_order_date'):
+        form_initial['preferred_delivery_date'] = recurring_order_setup['next_order_date']
+    form = CheckoutForm(initial=form_initial)
 
     return render(
         request,
@@ -655,6 +691,7 @@ def view_basket(request):
             'total': total,
             'form': form,
             'recurring_order_setup': recurring_order_setup,
+            'customer_address': customer_profile.address,
         }
     )
 
@@ -697,6 +734,17 @@ def checkout(request):
     if request.method == 'POST':
         form = CheckoutForm(request.POST)
         if form.is_valid():
+            # IF A RECURRING ORDER IS PENDING AND THE DELIVERY DATE HAS BEEN CHANGED, CANCEL IT
+            recurring_order_data = request.session.get('recurring_order_data')
+            if recurring_order_data:
+                submitted_date = form.cleaned_data['preferred_delivery_date'].isoformat()
+                if submitted_date != recurring_order_data.get('next_order_date'):
+                    del request.session['recurring_order_data']
+                    messages.warning(
+                        request,
+                        'Recurring order cancelled due to updated delivery date.'
+                    )
+
             # RE-CHECK STOCK AVAILABILITY FOR ALL ITEMS BEFORE CONFIRMING THE ORDER
             for item in basket_items:
                 if item.quantity > item.product.stock_quantity:
@@ -740,7 +788,6 @@ def checkout(request):
                     return redirect('view_basket')
 
                 request.session['pending_checkout_data'] = {
-                    'delivery_address': form.cleaned_data['delivery_address'],
                     'preferred_delivery_date': form.cleaned_data['preferred_delivery_date'].isoformat(),
                     'card_holder_name': form.cleaned_data['card_holder_name'],
                     'card_number_last4': form.cleaned_data['card_number'][-4:],
@@ -764,6 +811,8 @@ def checkout(request):
                     'basket_items': basket_items_list,
                     'total': total,
                     'form': form,
+                    'recurring_order_setup': request.session.get('recurring_order_data', None),
+                    'customer_address': customer_profile.address,
                 }
             )
 
@@ -817,7 +866,7 @@ def stripe_checkout_success(request):
             return redirect('view_basket')
 
     order_data = {
-        'delivery_address': pending_data['delivery_address'],
+        'delivery_address': customer_profile.address,
         'preferred_delivery_date': date.fromisoformat(pending_data['preferred_delivery_date']),
         'card_holder_name': pending_data.get('card_holder_name') or 'Stripe Checkout',
         'card_number': pending_data.get('card_number_last4') or '4242',
@@ -1114,9 +1163,17 @@ def producer_orders(request):
         if order.id not in orders_dict:
             orders_dict[order.id] = {
                 'order': order,
-                'items': []
+                'items': [],
+                'recurring_order': None,
             }
         orders_dict[order.id]['items'].append(item)
+
+    for entry in orders_dict.values():
+        entry['recurring_order'] = _get_matching_recurring_order(
+            entry['order'],
+            entry['items'],
+            producer_profile,
+        )
 
     orders = list(orders_dict.values())
 
@@ -1371,22 +1428,35 @@ def setup_recurring_order(request):
     if request.method == 'POST':
         frequency = request.POST.get('frequency')
         delivery_address = request.POST.get('delivery_address')
-        next_order_date = request.POST.get('next_order_date')
+        locked_next_order_date = request.POST.get('locked_next_order_date', '').strip()
+
+        if not locked_next_order_date:
+            messages.error(
+                request,
+                'Please choose a preferred delivery date on the basket page before setting up a recurring order.'
+            )
+            return redirect('view_basket')
 
         valid_frequencies = [choice[0] for choice in RecurringOrder.FREQUENCY_CHOICES]
         if frequency not in valid_frequencies:
             messages.error(request, 'Invalid frequency selected.')
-            return redirect('setup_recurring_order')
+            return redirect(request.get_full_path())
 
         try:
-            next_order_date = date.fromisoformat(next_order_date)
+            next_order_date = date.fromisoformat(locked_next_order_date)
         except ValueError:
-            messages.error(request, 'Invalid date selected.')
-            return redirect('setup_recurring_order')
+            messages.error(
+                request,
+                'The selected preferred delivery date is invalid. Please pick the date again on the basket page.'
+            )
+            return redirect('view_basket')
 
         if next_order_date < date.today() + timedelta(days=2):
-            messages.error(request, 'First delivery must be at least 48 hours from now.')
-            return redirect('setup_recurring_order')
+            messages.error(
+                request,
+                'Recurring orders require first delivery at least 48 hours from now. Please choose a later preferred delivery date in checkout.'
+            )
+            return redirect('view_basket')
 
         # STORE THE RECURRING ORDER DETAILS IN THE SESSION
         request.session['recurring_order_data'] = {
@@ -1401,6 +1471,19 @@ def setup_recurring_order(request):
         )
         return redirect('view_basket')
 
+    preferred_delivery_date = request.GET.get('preferred_delivery_date', '').strip()
+    try:
+        prefilled_first_delivery_date = date.fromisoformat(preferred_delivery_date).isoformat() if preferred_delivery_date else ''
+    except ValueError:
+        prefilled_first_delivery_date = ''
+
+    if not prefilled_first_delivery_date:
+        messages.error(
+            request,
+            'Please select a preferred delivery date in checkout before setting up a recurring order.'
+        )
+        return redirect('view_basket')
+
     return render(
         request,
         'marketplace/setup_recurring_order.html',
@@ -1409,6 +1492,7 @@ def setup_recurring_order(request):
             'frequency_choices': RecurringOrder.FREQUENCY_CHOICES,
             'delivery_address': customer_profile.address,
             'min_date': (date.today() + timedelta(days=2)).isoformat(),
+            'prefilled_first_delivery_date': prefilled_first_delivery_date,
         }
     )
 
@@ -1428,71 +1512,19 @@ def cancel_recurring_setup(request):
     return redirect('view_basket')
 
 
-# SETUP RECURRING ORDER VIEW - CREATES A RECURRING ORDER FROM THE CUSTOMER'S BASKET
+# CANCEL RECURRING ORDER DUE TO DATE CHANGE - CLEARS SESSION AND SHOWS RELEVANT MESSAGE
 @login_required
-def setup_recurring_order(request):
+def cancel_recurring_for_date_update(request):
     customer_profile = _get_logged_in_customer(request.user)
     if customer_profile is None:
         return redirect('home')
 
-    basket_items = BasketItem.objects.filter(
-        customer=customer_profile
-    ).select_related('product')
-
-    if not basket_items.exists():
-        messages.error(request, 'Your basket is empty.')
-        return redirect('view_basket')
-
     if request.method == 'POST':
-        frequency = request.POST.get('frequency')
-        delivery_address = request.POST.get('delivery_address')
-        next_order_date = request.POST.get('next_order_date')
+        if 'recurring_order_data' in request.session:
+            del request.session['recurring_order_data']
+        messages.warning(request, 'Recurring order cancelled due to updated delivery date.')
 
-        valid_frequencies = [choice[0] for choice in RecurringOrder.FREQUENCY_CHOICES]
-        if frequency not in valid_frequencies:
-            messages.error(request, 'Invalid frequency selected.')
-            return redirect('setup_recurring_order')
-
-        try:
-            next_order_date = date.fromisoformat(next_order_date)
-        except ValueError:
-            messages.error(request, 'Invalid date selected.')
-            return redirect('setup_recurring_order')
-
-        if next_order_date < date.today() + timedelta(days=2):
-            messages.error(request, 'First delivery must be at least 48 hours from now.')
-            return redirect('setup_recurring_order')
-
-        recurring_order = RecurringOrder.objects.create(
-            customer=customer_profile,
-            frequency=frequency,
-            delivery_address=delivery_address,
-            next_order_date=next_order_date,
-        )
-
-        for item in basket_items:
-            RecurringOrderItem.objects.create(
-                recurring_order=recurring_order,
-                product=item.product,
-                quantity=item.quantity,
-            )
-
-        messages.success(
-            request,
-            f'Recurring {frequency.lower()} order set up successfully!'
-        )
-        return redirect('manage_recurring_orders')
-
-    return render(
-        request,
-        'marketplace/setup_recurring_order.html',
-        {
-            'basket_items': basket_items,
-            'frequency_choices': RecurringOrder.FREQUENCY_CHOICES,
-            'delivery_address': customer_profile.address,
-            'min_date': (date.today() + timedelta(days=2)).isoformat(),
-        }
-    )
+    return redirect('view_basket')
 
 
 # MANAGE RECURRING ORDERS VIEW - DISPLAYS ALL RECURRING ORDERS FOR THE CUSTOMER

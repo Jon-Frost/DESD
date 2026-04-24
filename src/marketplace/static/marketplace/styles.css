@@ -1025,6 +1025,41 @@ body {
     margin-top: 20px;
 }
 
+/* RECURRING ORDER SETUP LINK WRAPPER BELOW THE DATE FIELD */
+.basket-recurring-btn-wrapper {
+    margin-top: 10px;
+}
+
+/* DATE + UPDATE BUTTON INLINE ROW */
+.basket-date-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.basket-date-row input[type="date"] {
+    flex: 1;
+}
+
+/* UPDATE DELIVERY DATE BUTTON */
+.basket-update-date-btn {
+    white-space: nowrap;
+    background: #2e7d32;
+    border: none;
+    color: #ffffff;
+    padding: 7px 14px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.88rem;
+    font-weight: bold;
+    transition: background 0.2s;
+}
+
+.basket-update-date-btn:hover,
+.basket-update-date-btn:focus {
+    background: #1b5e20;
+}
+
 /* --- PRODUCER ALLERGEN CHECKBOX LIST STYLES --- */
 
 /* DJANGO CHECKBOXSELECTMULTIPLE CONTAINER FOR PRODUCER PRODUCT FORM */
@@ -1593,6 +1628,15 @@ a.admin-quick-link:hover {
     gap: 16px;
     margin-bottom: 14px;
     color: #444;
+}
+
+.producer-order-recurring-note {
+    margin: -4px 0 14px;
+    padding: 10px 12px;
+    background: #f4faf4;
+    border-left: 4px solid #2e7d32;
+    border-radius: 6px;
+    color: #1b5e20;
 }
 
 .producer-order-table-wrap {
