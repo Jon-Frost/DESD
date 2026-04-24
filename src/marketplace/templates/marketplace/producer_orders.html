@@ -27,7 +27,16 @@
                     <div class="producer-order-meta">
                         <span><strong>Ordered:</strong> {{ order.created_at|date:"d M Y" }}</span>
                         <span><strong>Delivery:</strong> {{ order.preferred_delivery_date|date:"d M Y" }}</span>
+                        {% if entry.recurring_order %}
+                            <span><strong>Recurring:</strong> {{ entry.recurring_order.get_frequency_display }}</span>
+                        {% endif %}
                     </div>
+
+                    {% if entry.recurring_order %}
+                        <p class="producer-order-recurring-note">
+                            <strong>Recurring order:</strong> This order is part of a {{ entry.recurring_order.get_frequency_display|lower }} recurring schedule.
+                        </p>
+                    {% endif %}
 
                     <div class="producer-order-table-wrap">
                         <table class="producer-order-table">

@@ -140,15 +140,8 @@ class ProductForm(forms.ModelForm):
         return product
 
 
-# CHECKOUT FORM - COLLECTS DELIVERY AND PAYMENT DETAILS FROM THE CUSTOMER AT CHECKOUT
+# CHECKOUT FORM - COLLECTS DELIVERY DATE AND PAYMENT DETAILS FROM THE CUSTOMER AT CHECKOUT
 class CheckoutForm(forms.Form):
-    # DELIVERY ADDRESS WHERE THE ORDER SHOULD BE SENT
-    delivery_address = forms.CharField(
-        max_length=300,
-        widget=forms.TextInput(attrs={'class': 'auth-field', 'placeholder': 'Enter full delivery address'}),
-        label='Delivery Address',
-    )
-
     # PREFERRED DATE THE CUSTOMER WOULD LIKE TO RECEIVE THEIR ORDER
     preferred_delivery_date = forms.DateField(
         widget=forms.DateInput(attrs={'class': 'auth-field', 'type': 'date'}),

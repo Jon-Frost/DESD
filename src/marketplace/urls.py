@@ -39,6 +39,7 @@ urlpatterns = [
     path('producer/settlements/<str:week_start_str>/pdf/', views.download_settlement_pdf, name='download_settlement_pdf'),
     path('orders/recurring/setup/', views.setup_recurring_order, name='setup_recurring_order'),
     path('orders/recurring/cancel/', views.cancel_recurring_setup, name='cancel_recurring_setup'),
+    path('orders/recurring/cancel-date-update/', views.cancel_recurring_for_date_update, name='cancel_recurring_for_date_update'),
     path('orders/recurring/', views.manage_recurring_orders, name='manage_recurring_orders'),
     path('orders/recurring/<int:recurring_order_id>/update/', views.update_recurring_order_status, name='update_recurring_order_status'),
     path('notifications/', views.notifications, name='notifications'),
