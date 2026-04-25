@@ -113,6 +113,19 @@ def _season_ranges_overlap(product_from, product_to, filter_from, filter_to):
     filter_seasons = _expand_season_range(filter_from, filter_to)
     return bool(product_seasons & filter_seasons)
 
+def _calculate_next_recurring_date(start_date, frequency):
+    # CALCULATE THE NEXT RECURRING DELIVERY DATE FROM THE CONFIRMED ORDER DATE
+    if frequency == 'WEEKLY':
+        return start_date + timedelta(days=7)
+
+    if frequency == 'FORTNIGHTLY':
+        return start_date + timedelta(days=14)
+
+    if frequency == 'MONTHLY':
+        return start_date + timedelta(days=30)
+
+    return start_date + timedelta(days=7)
+
 
 def _create_customer_order_from_basket(customer_profile, basket_items, form_cleaned_data):
     # CREATE ORDER AND CHILD ORDER ITEMS FROM CURRENT BASKET SNAPSHOT (USES SURPLUS-DISCOUNTED PRICE)
@@ -159,11 +172,19 @@ def _create_recurring_order_if_requested(request, customer_profile, order):
         return
 
     recurring_data = request.session.pop('recurring_order_data')
+
+    # THE START DATE MUST BE THE DATE REQUESTED ON THE CONFIRMED ORDER
+    start_date = order.preferred_delivery_date
+
     recurring_order = RecurringOrder.objects.create(
         customer=customer_profile,
         frequency=recurring_data['frequency'],
         delivery_address=recurring_data['delivery_address'],
-        next_order_date=date.fromisoformat(recurring_data['next_order_date']),
+        start_date=start_date,
+        next_order_date=_calculate_next_recurring_date(
+            start_date,
+            recurring_data['frequency']
+        ),
     )
 
     for order_item in order.items.all():
@@ -178,6 +199,37 @@ def _create_recurring_order_if_requested(request, customer_profile, order):
         f'Recurring {recurring_data["frequency"].lower()} order created successfully!'
     )
 
+def _get_matching_recurring_order(order, producer_items, producer_profile):
+    # MATCH THE INITIAL CONFIRMED ORDER TO ITS RECURRING TEMPLATE SO PRODUCERS CAN SEE IT IN INCOMING ORDERS
+    producer_item_quantities = {
+        item.product_id: item.quantity
+        for item in producer_items
+    }
+
+    if not producer_item_quantities:
+        return None
+
+    recurring_orders = RecurringOrder.objects.filter(
+        customer=order.customer,
+        delivery_address=order.delivery_address,
+    ).prefetch_related('items__product')
+
+    for recurring_order in recurring_orders:
+        recurring_start_date = recurring_order.start_date or recurring_order.next_order_date
+
+        if recurring_start_date != order.preferred_delivery_date:
+            continue
+
+        recurring_item_quantities = {
+            recurring_item.product_id: recurring_item.quantity
+            for recurring_item in recurring_order.items.all()
+            if recurring_item.product.producer_id == producer_profile.id
+        }
+
+        if recurring_item_quantities == producer_item_quantities:
+            return recurring_order
+
+    return None
 
 def home(request):
     # REDIRECT ADMIN USERS TO THEIR OWN DASHBOARD ON LOGIN

@@ -193,12 +193,17 @@ class RecurringOrder(models.Model):
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='recurring_orders')
     frequency = models.CharField(max_length=15, choices=FREQUENCY_CHOICES, default='WEEKLY')
     delivery_address = models.CharField(max_length=300)
+    start_date = models.DateField(null=True, blank=True)
     next_order_date = models.DateField()
     status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='ACTIVE')
     created_at = models.DateTimeField(auto_now_add=True)
 
+    @property
+    def display_start_date(self):
+        return self.start_date or self.next_order_date
+
     def __str__(self):
-        return f"{self.customer.name} - {self.frequency} from {self.next_order_date}"
+        return f"{self.customer.name} - {self.frequency} from {self.display_start_date}"
 
 
 # RECURRING ORDER ITEM MODEL - REPRESENTS A SINGLE PRODUCT IN A RECURRING ORDER TEMPLATE
