@@ -1,5 +1,7 @@
 from django import forms
 from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 from .models import Producer, Customer, Product, Recipe
 import datetime
 
@@ -24,6 +26,15 @@ class ProducerSignupForm(forms.ModelForm):
         model = Producer
         fields = ['business_name', 'contact_name', 'email', 'phone_number', 'business_address', 'postcode']
 
+    # ENFORCE AUTH_PASSWORD_VALIDATORS BEFORE THE USER IS CREATED
+    def clean_password(self):
+        password = self.cleaned_data.get('password')
+        try:
+            validate_password(password)
+        except ValidationError as e:
+            raise forms.ValidationError(e.messages)
+        return password
+
     def save(self, commit=True):
         user = User.objects.create_user(
             username=self.cleaned_data['username'],
@@ -43,6 +54,15 @@ class CustomerSignupForm(forms.ModelForm):
     class Meta:
         model = Customer
         fields = ['name', 'email', 'phone_number', 'address', 'postcode']
+
+    # ENFORCE AUTH_PASSWORD_VALIDATORS BEFORE THE USER IS CREATED
+    def clean_password(self):
+        password = self.cleaned_data.get('password')
+        try:
+            validate_password(password)
+        except ValidationError as e:
+            raise forms.ValidationError(e.messages)
+        return password
 
     def save(self, commit=True):
         user = User.objects.create_user(
