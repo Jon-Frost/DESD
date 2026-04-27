@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-from .models import Producer, Customer, Product, Recipe
+from .models import Producer, Customer, Product, Recipe, RecurringOrder
 import datetime
 
 
@@ -168,6 +168,22 @@ class CheckoutForm(forms.Form):
         label='Preferred Delivery Date',
     )
 
+        # OPTIONAL CHECKBOX USED TO CREATE A RECURRING ORDER DURING CHECKOUT
+    make_recurring = forms.BooleanField(
+        required=False,
+        widget=forms.CheckboxInput(attrs={'class': 'basket-recurring-checkbox'}),
+        label='Make this a recurring order',
+    )
+
+    # FREQUENCY USED WHEN THE CUSTOMER CHOOSES A RECURRING CHECKOUT ORDER
+    recurring_frequency = forms.ChoiceField(
+        choices=RecurringOrder.FREQUENCY_CHOICES,
+        required=False,
+        initial='WEEKLY',
+        widget=forms.Select(attrs={'class': 'auth-field'}),
+        label='Recurring Frequency',
+    )
+
     # CARD HOLDER NAME AS IT APPEARS ON THE CARD
     card_holder_name = forms.CharField(
         max_length=100,
@@ -225,6 +241,20 @@ class CheckoutForm(forms.Form):
             raise forms.ValidationError('Please enter expiry in MM/YY format.')
         return expiry
     
+        def clean(self):
+                cleaned_data = super().clean()
+                make_recurring = cleaned_data.get('make_recurring')
+                preferred_delivery_date = cleaned_data.get('preferred_delivery_date')
+
+                if make_recurring and preferred_delivery_date:
+                    minimum_date = datetime.date.today() + datetime.timedelta(days=2)
+                    if preferred_delivery_date < minimum_date:
+                        self.add_error(
+                            'preferred_delivery_date',
+                            'Recurring orders require the first delivery date to be at least 48 hours from today.'
+                )
+
+        return cleaned_data
 class RecipeForm(forms.ModelForm):
     images = MultipleFileField(
         required=False,

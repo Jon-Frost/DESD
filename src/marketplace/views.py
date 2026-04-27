@@ -680,9 +680,19 @@ def view_basket(request):
     form_initial = {}
     preferred_date_param = request.GET.get('preferred_delivery_date', '').strip()
     if preferred_date_param:
+        form_initial = {}
+    preferred_date_param = request.GET.get('preferred_delivery_date', '').strip()
+
+    if preferred_date_param:
         form_initial['preferred_delivery_date'] = preferred_date_param
     elif recurring_order_setup and recurring_order_setup.get('next_order_date'):
         form_initial['preferred_delivery_date'] = recurring_order_setup['next_order_date']
+
+    # PRE-TICK THE CHECKBOX IF A RECURRING CHECKOUT HAS ALREADY BEEN SELECTED
+    if recurring_order_setup:
+        form_initial['make_recurring'] = True
+        form_initial['recurring_frequency'] = recurring_order_setup.get('frequency', 'WEEKLY')
+
     form = CheckoutForm(initial=form_initial)
 
     return render(
@@ -736,16 +746,16 @@ def checkout(request):
     if request.method == 'POST':
         form = CheckoutForm(request.POST)
         if form.is_valid():
-            # IF A RECURRING ORDER IS PENDING AND THE DELIVERY DATE HAS BEEN CHANGED, CANCEL IT
-            recurring_order_data = request.session.get('recurring_order_data')
-            if recurring_order_data:
-                submitted_date = form.cleaned_data['preferred_delivery_date'].isoformat()
-                if submitted_date != recurring_order_data.get('next_order_date'):
-                    del request.session['recurring_order_data']
-                    messages.warning(
-                        request,
-                        'Recurring order cancelled due to updated delivery date.'
-                    )
+                        # STORE THE OPTIONAL RECURRING ORDER CHOICE FROM THE CHECKOUT CHECKBOX.
+            # THE SELECTED PREFERRED DELIVERY DATE BECOMES THE RECURRING ORDER START/NEXT DATE.
+            if form.cleaned_data.get('make_recurring'):
+                request.session['recurring_order_data'] = {
+                    'frequency': form.cleaned_data.get('recurring_frequency') or 'WEEKLY',
+                    'delivery_address': customer_profile.address,
+                    'next_order_date': form.cleaned_data['preferred_delivery_date'].isoformat(),
+                }
+            else:
+                request.session.pop('recurring_order_data', None)
 
             # RE-CHECK STOCK AVAILABILITY FOR ALL ITEMS BEFORE CONFIRMING THE ORDER
             for item in basket_items:

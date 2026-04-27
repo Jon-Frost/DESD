@@ -135,15 +135,27 @@
                     {% endif %}
                 </div>
 
-                <!-- RECURRING ORDER LINK - SHOWN ONCE A DELIVERY DATE IS ENTERED -->
-                <div
-                    id="recurring-order-link-wrapper"
-                    class="basket-recurring-btn-wrapper"
-                    {% if not form.preferred_delivery_date.value %}style="display: none;"{% endif %}
-                >
-                    <a id="setup-recurring-order-link" href="{% url 'setup_recurring_order' %}" class="nav-link">
-                        Set Up as Recurring Order
-                    </a>
+                                <!-- RECURRING ORDER CHECKBOX - ALLOWS CHECKOUT TO CREATE A REPEAT ORDER -->
+                <div class="auth-field-group basket-recurring-checkout">
+                    <label class="basket-recurring-label" for="{{ form.make_recurring.id_for_label }}">
+                        {{ form.make_recurring }}
+                        <span>{{ form.make_recurring.label }}</span>
+                    </label>
+                    <p class="auth-subtitle">
+                        The preferred delivery date above will be used as the first recurring delivery date.
+                    </p>
+
+                    <div id="recurring-frequency-wrapper" class="basket-recurring-frequency" style="display: none;">
+                        <label class="auth-label" for="{{ form.recurring_frequency.id_for_label }}">
+                            {{ form.recurring_frequency.label }}
+                        </label>
+                        {{ form.recurring_frequency }}
+                        {% if form.recurring_frequency.errors %}
+                            {% for error in form.recurring_frequency.errors %}
+                                <p class="field-error-msg">{{ error }}</p>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
                 </div>
 
                 {% if not stripe_enabled %}
@@ -231,53 +243,18 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        const deliveryDateInput   = document.getElementById('{{ form.preferred_delivery_date.id_for_label }}');
-        const recurringWrapper    = document.getElementById('recurring-order-link-wrapper');
-        const recurringLink       = document.getElementById('setup-recurring-order-link');
-        const updateBtn           = document.getElementById('update-delivery-date-btn');
-        const recurringBaseUrl    = '{% url "setup_recurring_order" %}';
-        const recurringDate       = '{{ recurring_order_setup.next_order_date|default:"" }}';
+        const recurringCheckbox = document.getElementById('{{ form.make_recurring.id_for_label }}');
+        const frequencyWrapper = document.getElementById('recurring-frequency-wrapper');
 
-        if (!deliveryDateInput || !recurringWrapper || !recurringLink) return;
+        if (!recurringCheckbox || !frequencyWrapper) return;
 
-        function updateUI() {
-            const val = deliveryDateInput.value;
-
-            // Show/hide recurring setup link
-            if (val) {
-                recurringLink.href = `${recurringBaseUrl}?preferred_delivery_date=${encodeURIComponent(val)}`;
-                recurringWrapper.style.display = '';
-            } else {
-                recurringWrapper.style.display = 'none';
-            }
-
-            // Show update button only when recurring is pending and date has changed
-            if (updateBtn && recurringDate && val && val !== recurringDate) {
-                updateBtn.style.display = '';
-            } else if (updateBtn) {
-                updateBtn.style.display = 'none';
-            }
+        function toggleRecurringOptions() {
+            frequencyWrapper.style.display = recurringCheckbox.checked ? '' : 'none';
         }
 
-        if (updateBtn) {
-            updateBtn.addEventListener('click', function () {
-                const newDate = deliveryDateInput.value;
-                fetch(updateBtn.dataset.cancelUrl, {
-                    method: 'POST',
-                    headers: { 'X-CSRFToken': updateBtn.dataset.csrf, 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: 'csrfmiddlewaretoken=' + encodeURIComponent(updateBtn.dataset.csrf)
-                }).then(function () {
-                    const reloadUrl = newDate
-                        ? window.location.pathname + '?preferred_delivery_date=' + encodeURIComponent(newDate)
-                        : window.location.pathname;
-                    window.location.href = reloadUrl;
-                });
-            });
-        }
-
-        updateUI();
-        deliveryDateInput.addEventListener('change', updateUI);
-        deliveryDateInput.addEventListener('input', updateUI);
+        toggleRecurringOptions();
+        recurringCheckbox.addEventListener('change', toggleRecurringOptions);
     });
 </script>
+
 {% endblock %}
