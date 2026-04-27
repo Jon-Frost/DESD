@@ -107,12 +107,16 @@ AUTH_PASSWORD_VALIDATORS = [
     },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {'min_length': 8},
     },
     {
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
     },
     {
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+    },
+    {
+        'NAME': 'marketplace.validators.SpecialCharacterValidator',
     },
 ]
 
@@ -148,6 +152,13 @@ STATIC_URL = 'static/'
 LOGOUT_REDIRECT_URL = 'home'
 LOGIN_REDIRECT_URL = 'home'
 LOGIN_URL = 'login'
+
+# SESSION SECURITY - EXPIRE AT BROWSER CLOSE UNLESS REMEMBER ME IS CHECKED
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+# REMEMBER ME EXTENDS SESSION TO 2 WEEKS (1209600 SECONDS)
+SESSION_COOKIE_AGE = 1209600
+# PREVENT SESSION COOKIE BEING ACCESSED VIA JAVASCRIPT
+SESSION_COOKIE_HTTPONLY = True
 
 # STRIPE TEST MODE KEYS (OPTIONAL)
 STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY', '')

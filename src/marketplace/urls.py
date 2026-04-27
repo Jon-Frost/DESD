@@ -2,6 +2,19 @@ from django.urls import path
 from . import views
 from django.contrib.auth import views as auth_views
 
+
+# CUSTOM LOGIN VIEW - HANDLES REMEMBER ME CHECKBOX BY TOGGLING SESSION EXPIRY
+class RememberMeLoginView(auth_views.LoginView):
+    template_name = 'marketplace/login.html'
+
+    def form_valid(self, form):
+        remember_me = self.request.POST.get('remember_me')
+        if not remember_me:
+            # NO REMEMBER ME - SESSION EXPIRES WHEN BROWSER CLOSES
+            self.request.session.set_expiry(0)
+        return super().form_valid(form)
+
+
 urlpatterns = [
     path('', views.home, name='home'),
     path('dashboard/', views.admin_dashboard, name='admin_dashboard'),
@@ -13,7 +26,7 @@ urlpatterns = [
     path('signup/producer/', views.signup_producer, name='signup_producer'),
     path('signup/customer/', views.signup_customer, name='signup_customer'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
-    path('login/', auth_views.LoginView.as_view(template_name='marketplace/login.html'), name='login'),
+    path('login/', RememberMeLoginView.as_view(), name='login'),
     path('products/add/', views.add_product, name='add_product'),
     path('market/', views.customer_market, name='customer_market'),
     path('producer/bio/', views.producer_bio, name='producer_bio'),
