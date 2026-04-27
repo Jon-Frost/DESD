@@ -13,6 +13,7 @@ from .forms import CustomerSignupForm, ProducerSignupForm, ProductForm, Producer
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from django.http import HttpResponse
+from .tasks import create_notification
 from datetime import date, timedelta
 
 try:
@@ -138,15 +139,16 @@ def _create_customer_order_from_basket(customer_profile, basket_items, form_clea
         item.product.stock_quantity -= item.quantity
         item.product.save()
 
-        Notification.objects.create(
-            user=item.product.producer.user,
-            message=f'New order #{order.id} received for {item.quantity}x {item.product.name} from {order.customer.name}. Delivery: {order.preferred_delivery_date}.'
+        # QUEUE ORDER + LOW-STOCK NOTIFICATIONS VIA CELERY
+        create_notification.delay(
+            item.product.producer.user.id,
+            f'New order #{order.id} received for {item.quantity}x {item.product.name} from {order.customer.name}. Delivery: {order.preferred_delivery_date}.'
         )
 
         if item.product.stock_quantity <= item.product.low_stock_threshold:
-            Notification.objects.create(
-                user=item.product.producer.user,
-                message=f'Low stock alert: {item.product.name} only has {item.product.stock_quantity} units remaining.'
+            create_notification.delay(
+                item.product.producer.user.id,
+                f'Low stock alert: {item.product.name} only has {item.product.stock_quantity} units remaining.'
             )
 
     basket_items.delete()
@@ -998,9 +1000,10 @@ def submit_product_review(request, order_item_id):
                 f'to {rating}/5 on order #{order_item.order.id}.'
             )
 
-        Notification.objects.create(
-            user=order_item.product.producer.user,
-            message=notification_message,
+        # QUEUE REVIEW NOTIFICATION VIA CELERY
+        create_notification.delay(
+            order_item.product.producer.user.id,
+            notification_message,
         )
 
         messages.success(request, f'Review saved for "{order_item.product.name}".')
@@ -1241,10 +1244,10 @@ def update_order_status(request, order_id):
             order.status = new_status
             order.save()
 
-            # NOTIFY THE CUSTOMER OF THE STATUS CHANGE
-            Notification.objects.create(
-                user=order.customer.user,
-                message=f'Your order #{order.id} from {producer_profile.business_name} is now {order.get_status_display()}.'
+            # QUEUE STATUS-CHANGE NOTIFICATION VIA CELERY
+            create_notification.delay(
+                order.customer.user.id,
+                f'Your order #{order.id} from {producer_profile.business_name} is now {order.get_status_display()}.'
             )
 
             messages.success(request, f'Order #{order.id} status updated to {order.get_status_display()}.')
