@@ -55,6 +55,7 @@ urlpatterns = [
     path('orders/recurring/cancel-date-update/', views.cancel_recurring_for_date_update, name='cancel_recurring_for_date_update'),
     path('orders/recurring/', views.manage_recurring_orders, name='manage_recurring_orders'),
     path('orders/recurring/<int:recurring_order_id>/update/', views.update_recurring_order_status, name='update_recurring_order_status'),
+    path('orders/recurring/<int:recurring_order_id>/next-order/update/', views.update_recurring_order_next_order, name='update_recurring_order_next_order'),
     path('notifications/', views.notifications, name='notifications'),
     path('recipes/', views.recipe_list, name='recipe_list'),
     path('recipes/<int:recipe_id>/', views.recipe_detail, name='recipe_detail'),

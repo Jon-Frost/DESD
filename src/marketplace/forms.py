@@ -2,8 +2,28 @@ from django import forms
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-from .models import Producer, Customer, Product, Recipe
+from .models import Producer, Customer, Product, Recipe, RecurringOrder
 import datetime
+
+
+def build_delivery_day_choices(recurrence_day):
+    try:
+        recurrence_day = int(recurrence_day)
+    except (TypeError, ValueError):
+        recurrence_day = 0
+
+    choices = []
+    for week_offset, prefix in ((0, 'Same week'), (1, 'Next week')):
+        for weekday_value, weekday_label in RecurringOrder.WEEKDAY_CHOICES:
+            if week_offset == 0:
+                day_gap = weekday_value - recurrence_day
+            else:
+                day_gap = (7 - recurrence_day) + weekday_value
+
+            if day_gap >= 2:
+                choices.append((f'{week_offset}:{weekday_value}', f'{prefix} - {weekday_label}'))
+
+    return choices
 
 
 class MultipleFileInput(forms.ClearableFileInput):
@@ -168,6 +188,37 @@ class CheckoutForm(forms.Form):
         label='Preferred Delivery Date',
     )
 
+    # OPTIONAL RECURRING ORDER CONTROLS SHOWN DURING CHECKOUT
+    make_recurring = forms.BooleanField(
+        required=False,
+        widget=forms.CheckboxInput(attrs={'class': 'basket-recurring-checkbox'}),
+        label='Make this a recurring order',
+    )
+
+    recurrence_frequency = forms.ChoiceField(
+        choices=RecurringOrder.FREQUENCY_CHOICES,
+        required=False,
+        initial='WEEKLY',
+        widget=forms.Select(attrs={'class': 'auth-field'}),
+        label='Recurrence Frequency',
+    )
+
+    recurrence_day = forms.ChoiceField(
+        choices=RecurringOrder.WEEKDAY_CHOICES,
+        required=False,
+        initial=0,
+        widget=forms.Select(attrs={'class': 'auth-field'}),
+        label='Recurrence Day',
+    )
+
+    recurring_delivery_day = forms.ChoiceField(
+        choices=[],
+        required=False,
+        initial='0:2',
+        widget=forms.Select(attrs={'class': 'auth-field'}),
+        label='Recurring Delivery Day',
+    )
+
     # CARD HOLDER NAME AS IT APPEARS ON THE CARD
     card_holder_name = forms.CharField(
         max_length=100,
@@ -200,6 +251,16 @@ class CheckoutForm(forms.Form):
         label='CVV',
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if self.is_bound:
+            recurrence_day = self.data.get('recurrence_day', self.fields['recurrence_day'].initial)
+        else:
+            recurrence_day = self.initial.get('recurrence_day', self.fields['recurrence_day'].initial)
+
+        self.fields['recurring_delivery_day'].choices = build_delivery_day_choices(recurrence_day)
+
     def clean_card_number(self):
         # STRIP SPACES AND VALIDATE THAT THE CARD NUMBER IS NUMERIC AND 16 DIGITS
         number = self.cleaned_data.get('card_number', '').replace(' ', '').replace('-', '')
@@ -224,6 +285,41 @@ class CheckoutForm(forms.Form):
         if len(expiry) != 5 or expiry[2] != '/' or not expiry[:2].isdigit() or not expiry[3:].isdigit():
             raise forms.ValidationError('Please enter expiry in MM/YY format.')
         return expiry
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if not cleaned_data.get('make_recurring'):
+            return cleaned_data
+
+        preferred_delivery_date = cleaned_data.get('preferred_delivery_date')
+        minimum_date = datetime.date.today() + datetime.timedelta(days=2)
+
+        if preferred_delivery_date and preferred_delivery_date < minimum_date:
+            self.add_error(
+                'preferred_delivery_date',
+                'Recurring orders require the first delivery date to be at least 48 hours from today.'
+            )
+
+        if not cleaned_data.get('recurrence_frequency'):
+            self.add_error('recurrence_frequency', 'Please choose how often this order should repeat.')
+
+        if cleaned_data.get('recurrence_day') in (None, ''):
+            self.add_error('recurrence_day', 'Please choose which day the recurring order should run.')
+
+        if cleaned_data.get('recurring_delivery_day') in (None, ''):
+            self.add_error('recurring_delivery_day', 'Please choose the recurring delivery day.')
+            return cleaned_data
+
+        valid_delivery_choices = {
+            value for value, _label in build_delivery_day_choices(cleaned_data.get('recurrence_day'))
+        }
+        if cleaned_data.get('recurring_delivery_day') not in valid_delivery_choices:
+            self.add_error(
+                'recurring_delivery_day',
+                'Recurring delivery must be at least 48 hours after the recurrence day.'
+            )
+
+        return cleaned_data
     
 class RecipeForm(forms.ModelForm):
     images = MultipleFileField(

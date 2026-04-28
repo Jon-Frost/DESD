@@ -3,13 +3,10 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.conf import settings
 from decimal import Decimal, InvalidOperation
-from django.db.models import Q
-from .models import Producer, Customer, Product, BasketItem, CustomerOrder, OrderItem, RecurringOrder, RecurringOrderItem, Notification, Recipe, RecipeImage
-from .forms import CustomerSignupForm, ProducerSignupForm, ProductForm, ProducerBioForm, CheckoutForm, RecipeForm
 from django.db.models import Q, Sum
 from django.contrib.auth.models import User
-from .models import Producer, Customer, Product, BasketItem, CustomerOrder, OrderItem, RecurringOrder, RecurringOrderItem, Notification, ProductReview
-from .forms import CustomerSignupForm, ProducerSignupForm, ProductForm, ProducerBioForm, CheckoutForm
+from .models import Producer, Customer, Product, BasketItem, CustomerOrder, OrderItem, RecurringOrder, RecurringOrderItem, RecurringOrderUpcomingItem, Notification, Recipe, RecipeImage, ProductReview
+from .forms import CustomerSignupForm, ProducerSignupForm, ProductForm, ProducerBioForm, CheckoutForm, RecipeForm, build_delivery_day_choices
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from django.http import HttpResponse
@@ -155,17 +152,48 @@ def _create_customer_order_from_basket(customer_profile, basket_items, form_clea
     return order
 
 
-def _create_recurring_order_if_requested(request, customer_profile, order):
-    # CREATE RECURRING ORDER USING THE CONFIRMED ORDER ITEMS WHEN SESSION DATA EXISTS
-    if 'recurring_order_data' not in request.session:
-        return
+def _build_recurring_data_from_checkout(form, customer_profile):
+    # BUILD RECURRING TEMPLATE DATA DIRECTLY FROM THE CHECKOUT FORM
+    if not form.cleaned_data.get('make_recurring'):
+        return None
 
-    recurring_data = request.session.pop('recurring_order_data')
+    delivery_week_offset, delivery_day = form.cleaned_data['recurring_delivery_day'].split(':', 1)
+
+    return {
+        'frequency': form.cleaned_data['recurrence_frequency'],
+        'recurrence_day': int(form.cleaned_data['recurrence_day']),
+        'delivery_week_offset': int(delivery_week_offset),
+        'delivery_day': int(delivery_day),
+        'delivery_address': customer_profile.address,
+        'next_order_date': form.cleaned_data['preferred_delivery_date'].isoformat(),
+    }
+
+
+def _create_recurring_order(customer_profile, order, recurring_data):
+    # CREATE THE TEMPLATE FROM THE CHECKOUT ORDER SNAPSHOT
+    # ADVANCE NEXT_ORDER_DATE BY ONE CYCLE - INITIAL ORDER IS ALREADY IN ONE-OFF ORDERS
+    initial_date = date.fromisoformat(recurring_data['next_order_date'])
+    frequency = recurring_data['frequency']
+    if frequency == 'FORTNIGHTLY':
+        next_date = initial_date + timedelta(days=14)
+    elif frequency == 'MONTHLY':
+        month = initial_date.month + 1
+        year = initial_date.year
+        if month > 12:
+            month, year = 1, year + 1
+        next_date = date(year, month, min(initial_date.day, 28))
+    else:
+        # WEEKLY (DEFAULT)
+        next_date = initial_date + timedelta(days=7)
+
     recurring_order = RecurringOrder.objects.create(
         customer=customer_profile,
         frequency=recurring_data['frequency'],
+        recurrence_day=recurring_data['recurrence_day'],
+        delivery_week_offset=recurring_data.get('delivery_week_offset', 0),
+        delivery_day=recurring_data['delivery_day'],
         delivery_address=recurring_data['delivery_address'],
-        next_order_date=date.fromisoformat(recurring_data['next_order_date']),
+        next_order_date=next_date,
     )
 
     for order_item in order.items.all():
@@ -175,10 +203,41 @@ def _create_recurring_order_if_requested(request, customer_profile, order):
             quantity=order_item.quantity,
         )
 
+    return recurring_order
+
+
+def _create_recurring_order_if_requested(request, customer_profile, order, recurring_data=None):
+    # SUPPORT BOTH THE NEW CHECKOUT FIELDS AND THE LEGACY SESSION-BASED SETUP FLOW
+    if recurring_data is None:
+        recurring_data = request.session.pop('recurring_order_data', None)
+
+    if not recurring_data:
+        return None
+
+    recurring_order = _create_recurring_order(customer_profile, order, recurring_data)
     messages.success(
         request,
         f'Recurring {recurring_data["frequency"].lower()} order created successfully!'
     )
+    return recurring_order
+
+
+def _get_effective_recurring_items(recurring_order, scheduled_for):
+    # OVERLAY ANY NEXT-ORDER OVERRIDES ON TOP OF THE TEMPLATE ITEMS
+    overrides = {
+        override.product_id: override
+        for override in recurring_order.upcoming_items.filter(scheduled_for=scheduled_for).select_related('product')
+    }
+    effective_items = []
+    for item in recurring_order.items.select_related('product').all():
+        override = overrides.get(item.product_id)
+        effective_items.append({
+            'product': item.product,
+            'template_quantity': item.quantity,
+            'quantity': override.quantity if override else item.quantity,
+            'has_override': override is not None,
+        })
+    return effective_items
 
 
 def _get_matching_recurring_order(order, producer_items, producer_profile):
@@ -208,6 +267,31 @@ def _get_matching_recurring_order(order, producer_items, producer_profile):
             return recurring_order
 
     return None
+
+
+def _get_projected_recurring_orders_for_producer(producer_profile):
+    # BUILD THE NEXT UPCOMING RECURRING OCCURRENCE FOR THIS PRODUCER FROM ACTIVE TEMPLATES
+    recurring_orders = RecurringOrder.objects.filter(
+        status='ACTIVE',
+        items__product__producer=producer_profile,
+    ).select_related('customer').prefetch_related('items__product', 'upcoming_items__product').distinct().order_by('next_order_date', 'created_at')
+
+    projected_orders = []
+    for recurring_order in recurring_orders:
+        projected_items = [
+            item for item in _get_effective_recurring_items(recurring_order, recurring_order.next_order_date)
+            if item['product'].producer_id == producer_profile.id and item['quantity'] > 0
+        ]
+
+        if not projected_items:
+            continue
+
+        projected_orders.append({
+            'recurring_order': recurring_order,
+            'items': projected_items,
+        })
+
+    return projected_orders
 
 
 def home(request):
@@ -683,6 +767,15 @@ def view_basket(request):
         form_initial['preferred_delivery_date'] = preferred_date_param
     elif recurring_order_setup and recurring_order_setup.get('next_order_date'):
         form_initial['preferred_delivery_date'] = recurring_order_setup['next_order_date']
+
+    if recurring_order_setup:
+        form_initial.update({
+            'make_recurring': True,
+            'recurrence_frequency': recurring_order_setup.get('frequency', 'WEEKLY'),
+            'recurrence_day': recurring_order_setup.get('recurrence_day', 0),
+            'recurring_delivery_day': f"{recurring_order_setup.get('delivery_week_offset', 0)}:{recurring_order_setup.get('delivery_day', 2)}",
+        })
+
     form = CheckoutForm(initial=form_initial)
 
     return render(
@@ -736,16 +829,7 @@ def checkout(request):
     if request.method == 'POST':
         form = CheckoutForm(request.POST)
         if form.is_valid():
-            # IF A RECURRING ORDER IS PENDING AND THE DELIVERY DATE HAS BEEN CHANGED, CANCEL IT
-            recurring_order_data = request.session.get('recurring_order_data')
-            if recurring_order_data:
-                submitted_date = form.cleaned_data['preferred_delivery_date'].isoformat()
-                if submitted_date != recurring_order_data.get('next_order_date'):
-                    del request.session['recurring_order_data']
-                    messages.warning(
-                        request,
-                        'Recurring order cancelled due to updated delivery date.'
-                    )
+            recurring_data = _build_recurring_data_from_checkout(form, customer_profile)
 
             # RE-CHECK STOCK AVAILABILITY FOR ALL ITEMS BEFORE CONFIRMING THE ORDER
             for item in basket_items:
@@ -794,12 +878,13 @@ def checkout(request):
                     'card_holder_name': form.cleaned_data['card_holder_name'],
                     'card_number_last4': form.cleaned_data['card_number'][-4:],
                     'customer_id': customer_profile.id,
+                    'recurring_data': recurring_data,
                 }
                 return redirect(checkout_session.url)
 
             # NON-STRIPE FALLBACK: COMPLETE ORDER IMMEDIATELY USING CURRENT FLOW
             order = _create_customer_order_from_basket(customer_profile, basket_items, form.cleaned_data)
-            _create_recurring_order_if_requested(request, customer_profile, order)
+            _create_recurring_order_if_requested(request, customer_profile, order, recurring_data=recurring_data)
             return redirect('order_confirmation', order_id=order.id)
 
         else:
@@ -875,7 +960,12 @@ def stripe_checkout_success(request):
     }
 
     order = _create_customer_order_from_basket(customer_profile, basket_items, order_data)
-    _create_recurring_order_if_requested(request, customer_profile, order)
+    _create_recurring_order_if_requested(
+        request,
+        customer_profile,
+        order,
+        recurring_data=pending_data.get('recurring_data')
+    )
 
     request.session.pop('pending_checkout_data', None)
     return redirect('order_confirmation', order_id=order.id)
@@ -1150,14 +1240,15 @@ def producer_orders(request):
     if producer_profile is None:
         return redirect('home')
 
-    # GET ALL ORDER ITEMS FOR THIS PRODUCER'S PRODUCTS
+    # GET ALL ONE-OFF OR MANUALLY PAID NON-RECURRING ORDER ITEMS FOR THIS PRODUCER'S PRODUCTS
     order_items = OrderItem.objects.filter(
-    product__producer=producer_profile
-).exclude(
-    order__status='DELIVERED'
-).select_related(
-    'order__customer', 'product'
-).order_by('order__preferred_delivery_date')
+        product__producer=producer_profile,
+        order__source_recurring_order__isnull=True,
+    ).exclude(
+        order__status='DELIVERED'
+    ).select_related(
+        'order__customer', 'product'
+    ).order_by('order__preferred_delivery_date')
 
     # GROUP ORDER ITEMS BY ORDER
     orders_dict = {}
@@ -1178,12 +1269,16 @@ def producer_orders(request):
             producer_profile,
         )
 
-    orders = list(orders_dict.values())
+    one_off_orders = list(orders_dict.values())
+    recurring_orders = _get_projected_recurring_orders_for_producer(producer_profile)
 
     return render(
         request,
         'marketplace/producer_orders.html',
-        {'orders': orders}
+        {
+            'one_off_orders': one_off_orders,
+            'recurring_orders': recurring_orders,
+        }
     )
 
 
@@ -1199,26 +1294,32 @@ def producer_completed_orders(request):
         product__producer=producer_profile,
         order__status='DELIVERED'
     ).select_related(
-        'order__customer', 'product'
+        'order__customer', 'order__source_recurring_order', 'product'
     ).order_by('-order__preferred_delivery_date')
 
-    # GROUP ORDER ITEMS BY ORDER
-    orders_dict = {}
+    one_off_orders_dict = {}
+    recurring_orders_dict = {}
     for item in order_items:
         order = item.order
-        if order.id not in orders_dict:
-            orders_dict[order.id] = {
+        target_dict = recurring_orders_dict if order.source_recurring_order_id else one_off_orders_dict
+        if order.id not in target_dict:
+            target_dict[order.id] = {
                 'order': order,
-                'items': []
+                'items': [],
+                'recurring_order': order.source_recurring_order,
             }
-        orders_dict[order.id]['items'].append(item)
+        target_dict[order.id]['items'].append(item)
 
-    orders = list(orders_dict.values())
+    one_off_orders = list(one_off_orders_dict.values())
+    recurring_orders = list(recurring_orders_dict.values())
 
     return render(
         request,
         'marketplace/producer_completed_orders.html',
-        {'orders': orders}
+        {
+            'one_off_orders': one_off_orders,
+            'recurring_orders': recurring_orders,
+        }
     )
 
 
@@ -1266,12 +1367,12 @@ def payment_settlements(request):
     order_items = OrderItem.objects.filter(
         product__producer=producer_profile,
         order__status='DELIVERED'
-    ).select_related('order', 'product').order_by('-order__created_at')
+    ).select_related('order', 'product').order_by('-order__preferred_delivery_date', '-order__created_at')
 
     # GROUP BY WEEK
     weeks = {}
     for item in order_items:
-        order_date = item.order.created_at.date()
+        order_date = item.order.preferred_delivery_date
         week_start = order_date - timedelta(days=order_date.weekday())
         week_end = week_start + timedelta(days=6)
         week_key = week_start
@@ -1337,8 +1438,8 @@ def download_settlement_pdf(request, week_start_str):
     order_items = OrderItem.objects.filter(
         product__producer=producer_profile,
         order__status='DELIVERED',
-        order__created_at__date__gte=week_start,
-        order__created_at__date__lte=week_end,
+        order__preferred_delivery_date__gte=week_start,
+        order__preferred_delivery_date__lte=week_end,
     ).select_related('order__customer', 'product')
 
     response = HttpResponse(content_type='application/pdf')
@@ -1386,7 +1487,7 @@ def download_settlement_pdf(request, week_start_str):
         total_producer += producer_payment
 
         p.drawString(50, y, f"#{item.order.id}")
-        p.drawString(110, y, item.order.created_at.strftime('%d %b'))
+        p.drawString(110, y, item.order.preferred_delivery_date.strftime('%d %b'))
         p.drawString(190, y, item.product.name[:20])
         p.drawString(340, y, str(item.quantity))
         p.drawString(380, y, f"£{subtotal}")
@@ -1430,6 +1531,8 @@ def setup_recurring_order(request):
 
     if request.method == 'POST':
         frequency = request.POST.get('frequency')
+        recurrence_day = request.POST.get('recurrence_day', '').strip()
+        delivery_slot = request.POST.get('delivery_slot', '').strip()
         delivery_address = request.POST.get('delivery_address')
         locked_next_order_date = request.POST.get('locked_next_order_date', '').strip()
 
@@ -1444,6 +1547,20 @@ def setup_recurring_order(request):
         if frequency not in valid_frequencies:
             messages.error(request, 'Invalid frequency selected.')
             return redirect(request.get_full_path())
+
+        valid_weekdays = {str(choice[0]) for choice in RecurringOrder.WEEKDAY_CHOICES}
+        if recurrence_day not in valid_weekdays:
+            messages.error(request, 'Please choose a valid recurrence day.')
+            return redirect(request.get_full_path())
+
+        valid_delivery_slots = {
+            value for value, _label in build_delivery_day_choices(recurrence_day)
+        }
+        if delivery_slot not in valid_delivery_slots:
+            messages.error(request, 'Recurring delivery must be at least 48 hours after the recurrence day.')
+            return redirect(request.get_full_path())
+
+        delivery_week_offset, delivery_day = delivery_slot.split(':', 1)
 
         try:
             next_order_date = date.fromisoformat(locked_next_order_date)
@@ -1464,6 +1581,9 @@ def setup_recurring_order(request):
         # STORE THE RECURRING ORDER DETAILS IN THE SESSION
         request.session['recurring_order_data'] = {
             'frequency': frequency,
+            'recurrence_day': int(recurrence_day),
+            'delivery_week_offset': int(delivery_week_offset),
+            'delivery_day': int(delivery_day),
             'delivery_address': delivery_address,
             'next_order_date': next_order_date.isoformat(),
         }
@@ -1493,6 +1613,8 @@ def setup_recurring_order(request):
         {
             'basket_items': basket_items,
             'frequency_choices': RecurringOrder.FREQUENCY_CHOICES,
+            'weekday_choices': RecurringOrder.WEEKDAY_CHOICES,
+            'delivery_slot_choices': build_delivery_day_choices(0),
             'delivery_address': customer_profile.address,
             'min_date': (date.today() + timedelta(days=2)).isoformat(),
             'prefilled_first_delivery_date': prefilled_first_delivery_date,
@@ -1539,7 +1661,13 @@ def manage_recurring_orders(request):
 
     recurring_orders = RecurringOrder.objects.filter(
         customer=customer_profile
-    ).prefetch_related('items__product').order_by('-created_at')
+    ).prefetch_related('items__product', 'upcoming_items__product').order_by('-created_at')
+
+    for recurring_order in recurring_orders:
+        recurring_order.next_order_items = _get_effective_recurring_items(
+            recurring_order,
+            recurring_order.next_order_date,
+        )
 
     return render(
         request,
@@ -1568,6 +1696,46 @@ def update_recurring_order_status(request, recurring_order_id):
             recurring_order.status = new_status
             recurring_order.save()
             messages.success(request, f'Recurring order {new_status.lower()} successfully.')
+
+    return redirect('manage_recurring_orders')
+
+
+@login_required
+def update_recurring_order_next_order(request, recurring_order_id):
+    customer_profile = _get_logged_in_customer(request.user)
+    if customer_profile is None:
+        return redirect('home')
+
+    recurring_order = get_object_or_404(
+        RecurringOrder.objects.prefetch_related('items__product'),
+        id=recurring_order_id,
+        customer=customer_profile,
+    )
+
+    if request.method == 'POST':
+        scheduled_for = recurring_order.next_order_date
+        for item in recurring_order.items.all():
+            raw_quantity = request.POST.get(f'quantity_{item.product_id}', '').strip()
+            try:
+                quantity = int(raw_quantity)
+            except ValueError:
+                messages.error(request, f'Invalid quantity for {item.product.name}.')
+                return redirect('manage_recurring_orders')
+
+            if quantity < 0:
+                messages.error(request, f'Quantity for {item.product.name} cannot be negative.')
+                return redirect('manage_recurring_orders')
+
+            override, _ = RecurringOrderUpcomingItem.objects.get_or_create(
+                recurring_order=recurring_order,
+                product=item.product,
+                scheduled_for=scheduled_for,
+                defaults={'quantity': quantity},
+            )
+            override.quantity = quantity
+            override.save()
+
+        messages.success(request, 'Next scheduled order updated. The recurring template remains unchanged.')
 
     return redirect('manage_recurring_orders')
 

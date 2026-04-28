@@ -40,6 +40,7 @@
 
     <div class="basket-checkout-panel">
         <h3 class="basket-checkout-title">Recurring Order Details</h3>
+        <p class="auth-subtitle">This legacy page is still supported, but the same recurring settings are now also available directly during checkout.</p>
 
         <form class="auth-form" method="post">
             {% csrf_token %}
@@ -51,6 +52,26 @@
                         <option value="{{ value }}">{{ label }}</option>
                     {% endfor %}
                 </select>
+            </div>
+
+            <div class="basket-card-row">
+                <div class="auth-field-group basket-card-half">
+                    <label class="auth-label" for="recurrence_day">Recurrence Day</label>
+                    <select name="recurrence_day" id="recurrence_day" class="auth-field" required>
+                        {% for value, label in weekday_choices %}
+                            <option value="{{ value }}" {% if value == 0 %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="auth-field-group basket-card-half">
+                    <label class="auth-label" for="delivery_day">Recurring Delivery Day</label>
+                    <select name="delivery_slot" id="delivery_day" class="auth-field" required>
+                        {% for value, label in delivery_slot_choices %}
+                            <option value="{{ value }}" {% if value == '0:2' %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
             </div>
 
             <div class="auth-field-group">
@@ -86,4 +107,59 @@
         </form>
     </div>
 </div>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const recurrenceDay = document.getElementById('recurrence_day');
+        const deliveryDay = document.getElementById('delivery_day');
+        const weekdayLabels = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+        if (!recurrenceDay || !deliveryDay) return;
+
+        function buildOptions(recurrenceDayValue) {
+            const recurrenceDayInt = parseInt(recurrenceDayValue || '0', 10);
+            const options = [];
+
+            for (let weekOffset = 0; weekOffset <= 1; weekOffset += 1) {
+                for (let weekday = 0; weekday < weekdayLabels.length; weekday += 1) {
+                    const gap = weekOffset === 0
+                        ? weekday - recurrenceDayInt
+                        : (7 - recurrenceDayInt) + weekday;
+
+                    if (gap >= 2) {
+                        const prefix = weekOffset === 0 ? 'Same week' : 'Next week';
+                        options.push({
+                            value: `${weekOffset}:${weekday}`,
+                            label: `${prefix} - ${weekdayLabels[weekday]}`,
+                        });
+                    }
+                }
+            }
+
+            return options;
+        }
+
+        function updateDeliveryOptions() {
+            const currentValue = deliveryDay.value;
+            const options = buildOptions(recurrenceDay.value);
+            deliveryDay.innerHTML = '';
+
+            options.forEach(function (optionData) {
+                const option = document.createElement('option');
+                option.value = optionData.value;
+                option.textContent = optionData.label;
+                if (optionData.value === currentValue) {
+                    option.selected = true;
+                }
+                deliveryDay.appendChild(option);
+            });
+
+            if (!deliveryDay.value && options.length > 0) {
+                deliveryDay.value = options[0].value;
+            }
+        }
+
+        updateDeliveryOptions();
+        recurrenceDay.addEventListener('change', updateDeliveryOptions);
+    });
+</script>
 {% endblock %}

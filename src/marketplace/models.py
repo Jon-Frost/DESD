@@ -132,6 +132,16 @@ class BasketItem(models.Model):
 class CustomerOrder(models.Model):
     # LINK TO THE CUSTOMER WHO PLACED THE ORDER
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='orders')
+    # OPTIONAL LINK BACK TO THE RECURRING TEMPLATE THAT GENERATED THIS ORDER
+    source_recurring_order = models.ForeignKey(
+        'RecurringOrder',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='generated_orders'
+    )
+    # THE SCHEDULED RECURRING DATE THIS GENERATED ORDER REPRESENTS
+    source_scheduled_for = models.DateField(null=True, blank=True)
     # TIMESTAMP AUTOMATICALLY SET WHEN THE ORDER IS CREATED
     created_at = models.DateTimeField(auto_now_add=True)
     # DELIVERY DETAILS ENTERED BY THE CUSTOMER AT CHECKOUT
@@ -179,6 +189,16 @@ class OrderItem(models.Model):
 # RECURRING ORDER MODEL - REPRESENTS A SCHEDULED REPEAT ORDER FOR A CUSTOMER
 class RecurringOrder(models.Model):
 
+    WEEKDAY_CHOICES = [
+        (0, 'Monday'),
+        (1, 'Tuesday'),
+        (2, 'Wednesday'),
+        (3, 'Thursday'),
+        (4, 'Friday'),
+        (5, 'Saturday'),
+        (6, 'Sunday'),
+    ]
+
     FREQUENCY_CHOICES = [
         ('WEEKLY', 'Weekly'),
         ('FORTNIGHTLY', 'Fortnightly'),
@@ -193,6 +213,9 @@ class RecurringOrder(models.Model):
 
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='recurring_orders')
     frequency = models.CharField(max_length=15, choices=FREQUENCY_CHOICES, default='WEEKLY')
+    recurrence_day = models.PositiveSmallIntegerField(choices=WEEKDAY_CHOICES, default=0)
+    delivery_week_offset = models.PositiveSmallIntegerField(default=0)
+    delivery_day = models.PositiveSmallIntegerField(choices=WEEKDAY_CHOICES, default=2)
     delivery_address = models.CharField(max_length=300)
     next_order_date = models.DateField()
     status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='ACTIVE')
@@ -200,6 +223,10 @@ class RecurringOrder(models.Model):
 
     def __str__(self):
         return f"{self.customer.name} - {self.frequency} from {self.next_order_date}"
+
+    def get_delivery_schedule_display(self):
+        prefix = 'Same week' if self.delivery_week_offset == 0 else 'Next week'
+        return f"{prefix} - {self.get_delivery_day_display()}"
 
 
 # RECURRING ORDER ITEM MODEL - REPRESENTS A SINGLE PRODUCT IN A RECURRING ORDER TEMPLATE
@@ -210,6 +237,19 @@ class RecurringOrderItem(models.Model):
 
     def __str__(self):
         return f"{self.quantity}x {self.product.name}"
+
+
+class RecurringOrderUpcomingItem(models.Model):
+    recurring_order = models.ForeignKey(RecurringOrder, on_delete=models.CASCADE, related_name='upcoming_items')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    scheduled_for = models.DateField()
+    quantity = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        unique_together = ('recurring_order', 'product', 'scheduled_for')
+
+    def __str__(self):
+        return f"Upcoming {self.quantity}x {self.product.name} for recurring order #{self.recurring_order_id}"
     
 
 class Notification(models.Model):
