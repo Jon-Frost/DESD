@@ -275,6 +275,7 @@ class ProductReview(models.Model):
 
     # OPTIONAL WRITTEN FEEDBACK
     comment = models.TextField(blank=True)
+    is_anonymous = models.BooleanField(default=False)
 
     # REVIEW TIMESTAMPS
     created_at = models.DateTimeField(auto_now_add=True)

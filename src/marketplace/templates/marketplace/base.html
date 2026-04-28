@@ -32,6 +32,7 @@
                 <a href="{% url 'notifications' %}" class="nav-link">
                     🔔 {% if notification_count > 0 %}({{ notification_count }}){% endif %}
                 </a>
+                <a href="{% url 'edit_account' %}" class="nav-link">Settings</a>
                 <form action="{% url 'logout' %}" method="post" class="nav-inline-form">
                     {% csrf_token %}
                     <button type="submit" class="nav-link-btn">Logout</button>
