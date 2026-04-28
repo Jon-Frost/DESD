@@ -55,30 +55,50 @@
 {% if producer_recipes %}
 <h3>Your Recipes</h3>
 {% for recipe in producer_recipes %}
-<div class="order-card">
-    <div class="order-header">
-        <span><strong>{{ recipe.title }}</strong></span>
-        <span>{{ recipe.get_seasonal_tag_display }}</span>
-        <span>{{ recipe.created_at|date:"d M Y" }}</span>
-    </div>
-    <div class="order-footer">
-        {% if recipe.images.all %}
-            <div class="product-image-container" style="margin-bottom: 12px;">
-                <img src="{{ recipe.images.first.image.url }}" alt="Image of {{ recipe.title }}" style="max-width: 100%; height: 200px; object-fit: cover; border-radius: 8px;">
-            </div>
-        {% elif recipe.image %}
-            <div class="product-image-container" style="margin-bottom: 12px;">
-                <img src="{{ recipe.image.url }}" alt="Image of {{ recipe.title }}" style="max-width: 100%; height: 200px; object-fit: cover; border-radius: 8px;">
-            </div>
-        {% endif %}
+<div class="producer-recipe-card">
 
-        <p>{{ recipe.description|truncatewords:20 }}</p>
+    <!-- HEADER: TITLE + IMAGES -->
+    <div class="producer-recipe-header">
+        <div class="producer-recipe-header-text">
+            <h3>{{ recipe.title }}</h3>
+            <span class="producer-recipe-date">{{ recipe.created_at|date:"d M Y" }}</span>
+            <span class="producer-recipe-season">{{ recipe.get_seasonal_tag_display }}</span>
+        </div>
+        <!-- IMAGES LEFT TO RIGHT WITH UNIFORM HEIGHT -->
+        {% if recipe.images.all %}
+        <div class="recipe-image-strip">
+            {% for img in recipe.images.all %}
+                <img src="{{ img.image.url }}" alt="Image of {{ recipe.title }}">
+            {% endfor %}
+        </div>
+        {% elif recipe.image %}
+        <div class="recipe-image-strip">
+            <img src="{{ recipe.image.url }}" alt="Image of {{ recipe.title }}">
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- BODY: DESCRIPTION, INGREDIENTS, INSTRUCTIONS -->
+    <div class="producer-recipe-body">
+        <h4>Description</h4>
+        <p>{{ recipe.description }}</p>
+
+        <h4>Ingredients</h4>
+        <pre>{{ recipe.ingredients }}</pre>
+
+        <h4>Instructions</h4>
+        <pre>{{ recipe.instructions }}</pre>
+    </div>
+
+    <!-- ACTIONS: EDIT + DELETE -->
+    <div class="producer-recipe-actions">
         <a href="{% url 'edit_recipe' recipe.id %}" class="nav-link">Edit</a>
-        <form method="post" action="{% url 'delete_recipe' recipe.id %}" style="display:inline;">
+        <form method="post" action="{% url 'delete_recipe' recipe.id %}" class="nav-inline-form">
             {% csrf_token %}
-            <button type="submit" onclick="return confirm('Delete this recipe?')">Delete</button>
+            <button type="submit" class="nav-link-btn" onclick="return confirm('Delete this recipe?')">Delete</button>
         </form>
     </div>
+
 </div>
 {% endfor %}
 {% else %}

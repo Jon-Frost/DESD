@@ -14,19 +14,18 @@
 
 {% if recipes %}
     {% for recipe in recipes %}
-    <div class="order-card">
-        <div class="order-header">
-            <span><strong>{{ recipe.title }}</strong></span>
-            <span>By: {{ recipe.producer.business_name }}</span>
-            <span>{{ recipe.get_seasonal_tag_display }}</span>
+    <div class="customer-recipe-card">
+        <div class="customer-recipe-card-header">
+            <span class="customer-recipe-title">{{ recipe.title }}</span>
+            <span class="customer-recipe-meta">By: {{ recipe.producer.business_name }} &middot; {{ recipe.get_seasonal_tag_display }}</span>
         </div>
-        <div class="order-footer">
+        <div class="customer-recipe-card-body">
             {% if recipe.images.all %}
-                <div class="product-image-container" style="margin-bottom: 12px;">
+                <div style="margin-bottom: 12px;">
                     <img src="{{ recipe.images.first.image.url }}" alt="Image of {{ recipe.title }}" style="max-width: 100%; height: 220px; object-fit: cover; border-radius: 8px;">
                 </div>
             {% elif recipe.image %}
-                <div class="product-image-container" style="margin-bottom: 12px;">
+                <div style="margin-bottom: 12px;">
                     <img src="{{ recipe.image.url }}" alt="Image of {{ recipe.title }}" style="max-width: 100%; height: 220px; object-fit: cover; border-radius: 8px;">
                 </div>
             {% endif %}
