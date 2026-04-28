@@ -1714,3 +1714,225 @@ a.admin-quick-link:hover {
         min-width: 100%;
     }
 }
+
+/* --- PRODUCER MY RECIPES - CARD LAYOUT --- */
+.producer-recipe-card {
+    background: #fff;
+    border: 1px solid #c8e6c9;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* TITLE ON TOP, IMAGE BELOW */
+.producer-recipe-header {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    margin-bottom: 16px;
+    gap: 10px;
+}
+
+.producer-recipe-header-text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+}
+
+.producer-recipe-header-text h3 {
+    margin: 0;
+    font-size: 1.3rem;
+    color: #1b5e20;
+}
+
+.producer-recipe-date {
+    color: #777;
+    font-size: 0.9rem;
+}
+
+.producer-recipe-season {
+    color: #555;
+    font-size: 0.9rem;
+    font-style: italic;
+}
+
+/* SUBTITLES + CONTENT */
+.producer-recipe-body h4 {
+    margin: 12px 0 4px 0;
+    color: #2e7d32;
+    font-size: 1rem;
+    border-bottom: 1px solid #e8f5e9;
+    padding-bottom: 2px;
+}
+
+.producer-recipe-body p,
+.producer-recipe-body pre {
+    margin: 0 0 8px 0;
+    white-space: pre-wrap;
+    font-family: inherit;
+    font-size: 0.95rem;
+    color: #333;
+}
+
+/* EDIT + DELETE ACTIONS */
+.producer-recipe-actions {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid #e8f5e9;
+}
+
+@media (max-width: 600px) {
+    .producer-recipe-header {
+        flex-direction: column-reverse;
+    }
+
+    .producer-recipe-image img {
+        width: 100%;
+        height: 200px;
+    }
+}
+
+/* --- CUSTOMER RECIPE LIST CARDS --- */
+.customer-recipe-card {
+    border: 1px solid #c8e6c9;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    overflow: hidden;
+    background: #fff;
+}
+
+/* GREEN HEADER BAR */
+.customer-recipe-card-header {
+    background: #e8f5e9;
+    border-bottom: 1px solid #c8e6c9;
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.customer-recipe-title {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #1b5e20;
+}
+
+.customer-recipe-meta {
+    font-size: 0.88rem;
+    color: #555;
+}
+
+/* CARD BODY */
+.customer-recipe-card-body {
+    padding: 16px;
+}
+
+/* --- RECIPE DETAIL PAGE --- */
+.recipe-detail-card {
+    background: #fff;
+    border: 1px solid #c8e6c9;
+    border-radius: 8px;
+    overflow: hidden;
+    max-width: 860px;
+    margin: 0 auto;
+}
+
+/* TITLE HEADER BLOCK */
+.recipe-detail-header {
+    background: #e8f5e9;
+    border-bottom: 2px solid #c8e6c9;
+    padding: 20px 24px;
+}
+
+.recipe-detail-title {
+    margin: 0 0 8px 0;
+    color: #1b5e20;
+    font-size: 1.8rem;
+}
+
+.recipe-detail-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    color: #555;
+    font-size: 0.9rem;
+}
+
+/* EACH SECTION (IMAGES, DESC, INGREDIENTS ETC) */
+.recipe-detail-section {
+    padding: 16px 24px;
+    border-bottom: 1px solid #e8f5e9;
+}
+
+/* GREEN SECTION HEADINGS */
+.recipe-detail-heading {
+    margin: 0 0 10px 0;
+    color: #2e7d32;
+    font-size: 1.1rem;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #c8e6c9;
+}
+
+/* SHARED IMAGE STRIP - LEFT TO RIGHT, UNIFORM HEIGHT */
+.recipe-image-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 6px;
+}
+
+.recipe-image-strip img {
+    height: 160px;
+    width: auto;
+    object-fit: cover;
+    border-radius: 8px;
+    display: block;
+}
+
+/* PRE BLOCKS FOR INGREDIENTS / INSTRUCTIONS */
+.recipe-detail-pre {
+    white-space: pre-wrap;
+    font-family: inherit;
+    font-size: 0.95rem;
+    color: #333;
+    margin: 0;
+    line-height: 1.6;
+}
+
+/* LINKED PRODUCTS TABLE */
+.recipe-detail-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+}
+
+.recipe-detail-table th {
+    text-align: left;
+    padding: 8px 10px;
+    background: #e8f5e9;
+    color: #1b5e20;
+    border-bottom: 2px solid #c8e6c9;
+}
+
+.recipe-detail-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #f0f0f0;
+    color: #333;
+}
+
+.recipe-detail-table tr:last-child td {
+    border-bottom: none;
+}
+
+/* BACK LINKS ROW */
+.recipe-detail-footer {
+    padding: 16px 24px;
+    display: flex;
+    gap: 20px;
+}
