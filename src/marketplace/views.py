@@ -14,6 +14,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from django.http import HttpResponse
 from datetime import date, timedelta
+from .utils import calculate_food_miles
 
 try:
     import stripe
@@ -518,11 +519,20 @@ def customer_market(request):
             )
         ]
 
+    customer_postcode = customer_profile.postcode
+    products_with_miles = []
+    for product in products:
+        food_miles = calculate_food_miles(customer_postcode, product.producer.postcode)
+        products_with_miles.append({
+            'product': product,
+            'food_miles': food_miles,
+        })
+
     return render(
         request,
         'marketplace/customer_market.html',
         {
-            'products': products,
+            'products_with_miles': products_with_miles,
             'category_choices': Product.CATEGORY_CHOICES,
             'allergen_choices': Product.ALLERGEN_CHOICES,
             'season_choices': Product.SEASON_CHOICES,
@@ -647,12 +657,27 @@ def view_basket(request):
     # CHECK IF A RECURRING ORDER SETUP IS IN PROGRESS
     recurring_order_setup = request.session.get('recurring_order_data', None)
 
+    customer_postcode = customer_profile.postcode
+    basket_with_miles = []
+    total_food_miles = 0
+
+    for item in basket_items:
+        food_miles = calculate_food_miles(customer_postcode, item.product.producer.postcode)
+        basket_with_miles.append({
+            'item': item,
+            'food_miles': food_miles,
+        })
+        if food_miles:
+            total_food_miles += food_miles
+
     return render(
         request,
         'marketplace/basket.html',
         {
             'basket_items': basket_items,
+            'basket_with_miles': basket_with_miles,
             'total': total,
+            'total_food_miles': round(total_food_miles, 1),
             'form': form,
             'recurring_order_setup': recurring_order_setup,
         }

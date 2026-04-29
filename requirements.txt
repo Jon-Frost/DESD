@@ -5,3 +5,4 @@ django-phonenumber-field[phonenumbers]
 # lighter
 reportlab
 stripe
+requests
