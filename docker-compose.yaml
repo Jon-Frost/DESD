@@ -57,7 +57,7 @@ services:
 
   celery:
     build: .
-    command: sh -c "cd src && celery -A core worker --loglevel=info"
+    command: sh -c "cd src && celery -A core worker -B --loglevel=info"
     volumes:
       - .:/src
     env_file:
