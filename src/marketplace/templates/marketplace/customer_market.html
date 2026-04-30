@@ -152,7 +152,8 @@
 
     <div class="producer-panel producer-gallery-panel">
         <div class="producer-product-list">
-            {% for product in products %}
+            {% for entry in products_with_miles %}
+                {% with product=entry.product food_miles=entry.food_miles %}
                 <article class="producer-product-card">
                     <div class="producer-product-header">
                         <h3>{{ product.name }}</h3>
@@ -183,11 +184,26 @@
         View reviews
     </button>
                     </div>
+
                     {% if product.image %}
                         <div class="product-image-container" style="margin: 15px 0;">
                             <img src="{{ product.image.url }}" alt="Image of {{ product.name }}" style="max-width: 100%; height: 200px; object-fit: cover; border-radius: 8px;">
                         </div>
                     {% endif %}
+
+                    <!-- FOOD MILES BADGE - TC-013 -->
+                    {% if food_miles is not None %}
+                        <p class="producer-product-meta">
+                             <strong>Food Miles:</strong>
+                            <span class="food-miles-badge {% if food_miles <= 20 %}food-miles-low{% else %}food-miles-high{% endif %}">
+                                {{ food_miles }} miles
+                            </span>
+                            {% if food_miles <= 20 %}
+                                 Within 20-mile network radius
+                            {% endif %}
+                        </p>
+                    {% endif %}
+
                     <p class="producer-product-meta">
                         <strong>Category:</strong> {{ product.get_category_display }}
                     </p>
@@ -290,6 +306,7 @@
                         </div>
                     </div>
                 </article>
+                {% endwith %}
             {% empty %}
                 <div class="producer-empty-state">
                     <p>No products match the current filters.</p>

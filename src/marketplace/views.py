@@ -1,7 +1,20 @@
 from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
+from django.contrib.auth import logout
+from django.contrib.auth.views import PasswordChangeView
 from django.contrib import messages
 from django.conf import settings
+from django.db.models import Q, Sum
+from django.http import HttpResponse
+from django.urls import reverse_lazy
+from decimal import Decimal, InvalidOperation
+from datetime import date, timedelta
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from .models import Producer, Customer, Product, BasketItem, CustomerOrder, OrderItem, RecurringOrder, RecurringOrderItem, Notification, Recipe, ProductReview
+from .forms import CustomerSignupForm, ProducerSignupForm, ProductForm, ProducerBioForm, CheckoutForm, RecipeForm, ChangeEmailForm, ChangePostcodeForm
+from .utils import calculate_food_miles
 from decimal import Decimal, InvalidOperation
 from django.db.models import Q
 from .models import Producer, Customer, Product, BasketItem, CustomerOrder, OrderItem, RecurringOrder, RecurringOrderItem, Notification, Recipe, RecipeImage
@@ -612,11 +625,20 @@ def customer_market(request):
             )
         ]
 
+    customer_postcode = customer_profile.postcode
+    products_with_miles = []
+    for product in products:
+        food_miles = calculate_food_miles(customer_postcode, product.producer.postcode)
+        products_with_miles.append({
+            'product': product,
+            'food_miles': food_miles,
+        })
+
     return render(
         request,
         'marketplace/customer_market.html',
         {
-            'products': products,
+            'products_with_miles': products_with_miles,
             'category_choices': Product.CATEGORY_CHOICES,
             'allergen_choices': Product.ALLERGEN_CHOICES,
             'season_choices': Product.SEASON_CHOICES,
@@ -764,12 +786,27 @@ def view_basket(request):
         form_initial['preferred_delivery_date'] = recurring_order_setup['next_order_date']
     form = CheckoutForm(initial=form_initial)
 
+    customer_postcode = customer_profile.postcode
+    basket_with_miles = []
+    total_food_miles = 0
+
+    for item in basket_items:
+        food_miles = calculate_food_miles(customer_postcode, item.product.producer.postcode)
+        basket_with_miles.append({
+            'item': item,
+            'food_miles': food_miles,
+        })
+        if food_miles:
+            total_food_miles += food_miles
+
     return render(
         request,
         'marketplace/basket.html',
         {
             'basket_items': basket_items,
+            'basket_with_miles': basket_with_miles,
             'total': total,
+            'total_food_miles': round(total_food_miles, 1),
             'form': form,
             'recurring_order_setup': recurring_order_setup,
             'customer_address': customer_profile.address,
