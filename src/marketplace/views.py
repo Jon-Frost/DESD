@@ -1,19 +1,19 @@
 from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
+from django.contrib.auth import logout
+from django.contrib.auth.views import PasswordChangeView
 from django.contrib import messages
 from django.conf import settings
-from decimal import Decimal, InvalidOperation
-from django.db.models import Q
-from .models import Producer, Customer, Product, BasketItem, CustomerOrder, OrderItem, RecurringOrder, RecurringOrderItem, Notification, Recipe
-from .forms import CustomerSignupForm, ProducerSignupForm, ProductForm, ProducerBioForm, CheckoutForm, RecipeForm
 from django.db.models import Q, Sum
-from django.contrib.auth.models import User
-from .models import Producer, Customer, Product, BasketItem, CustomerOrder, OrderItem, RecurringOrder, RecurringOrderItem, Notification, ProductReview
-from .forms import CustomerSignupForm, ProducerSignupForm, ProductForm, ProducerBioForm, CheckoutForm
+from django.http import HttpResponse
+from django.urls import reverse_lazy
+from decimal import Decimal, InvalidOperation
+from datetime import date, timedelta
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
-from django.http import HttpResponse
-from datetime import date, timedelta
+from .models import Producer, Customer, Product, BasketItem, CustomerOrder, OrderItem, RecurringOrder, RecurringOrderItem, Notification, Recipe, ProductReview
+from .forms import CustomerSignupForm, ProducerSignupForm, ProductForm, ProducerBioForm, CheckoutForm, RecipeForm, ChangeEmailForm, ChangePostcodeForm
 from .utils import calculate_food_miles
 
 try:
@@ -651,11 +651,18 @@ def view_basket(request):
     # CALCULATE THE GRAND TOTAL ACROSS ALL BASKET ITEMS
     total = sum(item.get_subtotal() for item in basket_items)
 
-    # INITIALISE A BLANK CHECKOUT FORM FOR THE CUSTOMER TO FILL IN
-    form = CheckoutForm()
-
     # CHECK IF A RECURRING ORDER SETUP IS IN PROGRESS
     recurring_order_setup = request.session.get('recurring_order_data', None)
+
+    # PRE-FILL THE PREFERRED DELIVERY DATE FROM THE RECURRING ORDER DATE IF ONE IS IN PROGRESS
+    # OR FROM A QUERY PARAM PASSED AFTER CANCELLING A RECURRING ORDER VIA THE UPDATE DATE BUTTON
+    form_initial = {}
+    preferred_date_param = request.GET.get('preferred_delivery_date', '').strip()
+    if preferred_date_param:
+        form_initial['preferred_delivery_date'] = preferred_date_param
+    elif recurring_order_setup and recurring_order_setup.get('next_order_date'):
+        form_initial['preferred_delivery_date'] = recurring_order_setup['next_order_date']
+    form = CheckoutForm(initial=form_initial)
 
     customer_postcode = customer_profile.postcode
     basket_with_miles = []
