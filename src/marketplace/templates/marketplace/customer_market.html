@@ -152,7 +152,8 @@
 
     <div class="producer-panel producer-gallery-panel">
         <div class="producer-product-list">
-            {% for product in products %}
+            {% for entry in products_with_miles %}
+                {% with product=entry.product food_miles=entry.food_miles %}
                 <article class="producer-product-card">
                     <div class="producer-product-header">
                         <h3>{{ product.name }}</h3>
@@ -167,12 +168,42 @@
 {% else %}
     <span class="producer-product-price">£{{ product.price }} / {{ product.unit }}</span>
 {% endif %}
+    <p class="producer-product-meta">
+        <strong>Rating:</strong>
+        {% if product.review_count %}
+            ⭐ {{ product.avg_rating|floatformat:1 }} / 5
+            ({{ product.review_count }} review{{ product.review_count|pluralize }})
+        {% else %}
+            No reviews yet
+        {% endif %}
+    </p>
+    <button type="button"
+            class="nav-link"
+            style="border:none; background:none; padding:0; cursor:pointer;"
+            onclick="openReviewsModal('reviews-{{ product.id }}')">
+        View reviews
+    </button>
                     </div>
+
                     {% if product.image %}
                         <div class="product-image-container" style="margin: 15px 0;">
                             <img src="{{ product.image.url }}" alt="Image of {{ product.name }}" style="max-width: 100%; height: 200px; object-fit: cover; border-radius: 8px;">
                         </div>
                     {% endif %}
+
+                    <!-- FOOD MILES BADGE - TC-013 -->
+                    {% if food_miles is not None %}
+                        <p class="producer-product-meta">
+                             <strong>Food Miles:</strong>
+                            <span class="food-miles-badge {% if food_miles <= 20 %}food-miles-low{% else %}food-miles-high{% endif %}">
+                                {{ food_miles }} miles
+                            </span>
+                            {% if food_miles <= 20 %}
+                                 Within 20-mile network radius
+                            {% endif %}
+                        </p>
+                    {% endif %}
+
                     <p class="producer-product-meta">
                         <strong>Category:</strong> {{ product.get_category_display }}
                     </p>
@@ -231,8 +262,51 @@
                         <!-- OUT OF STOCK INDICATOR - SHOWN WHEN NO STOCK REMAINS -->
                         <p class="out-of-stock-label">Out of stock</p>
                     {% endif %}
+                    <div id="reviews-{{ product.id }}"
+                        style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:9999; padding:40px; overflow:auto;">
 
+                        <div style="background:white; max-width:650px; margin:40px auto; padding:24px; border-radius:10px; border:1px solid #c8e6c9;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; gap:20px;">
+                                <h2 style="margin:0; color:#2e7d32;">Reviews for {{ product.name }}</h2>
+                                <button type="button"
+                                    onclick="closeReviewsModal('reviews-{{ product.id }}')"
+                                    style="border:none; background:#fff0f0; color:#8f1f1f; padding:6px 12px; border-radius:5px; cursor:pointer;">
+                ✕
+                                </button>
+                            </div>
+
+                            <hr>
+
+                            {% if product.reviews.all %}
+                                {% for review in product.reviews.all %}
+                                    <div style="border:1px solid #c8e6c9; border-radius:8px; padding:14px; margin-bottom:12px;">
+                                        <p style="margin-top:0;">
+                                            <strong>
+                                                {% if review.is_anonymous %}
+                                                    Anonymous customer
+                                                {% else %}
+                                                    {{ review.customer.name }}
+                                                {% endif %}
+                                            </strong>
+                                            — ⭐ {{ review.rating }}/5
+                                        </p>
+
+                                        {% if review.comment %}
+                                            <p>{{ review.comment }}</p>
+                                        {% else %}
+                                            <p style="color:#777; font-style:italic;">No written comment provided.</p>
+                                        {% endif %}
+
+                                        <small style="color:#666;">{{ review.created_at|date:"d M Y, H:i" }}</small>
+                                    </div>
+                                {% endfor %}
+                            {% else %}
+                                <p>No reviews yet for this product.</p>
+                            {% endif %}
+                        </div>
+                    </div>
                 </article>
+                {% endwith %}
             {% empty %}
                 <div class="producer-empty-state">
                     <p>No products match the current filters.</p>
@@ -306,5 +380,14 @@
         }
     });
 })();
+</script>
+<script>
+function openReviewsModal(id) {
+    document.getElementById(id).style.display = 'block';
+}
+
+function closeReviewsModal(id) {
+    document.getElementById(id).style.display = 'none';
+}
 </script>
 {% endblock %}

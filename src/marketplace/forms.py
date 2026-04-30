@@ -95,6 +95,17 @@ class CustomerSignupForm(forms.ModelForm):
         if commit:
             customer.save()
         return customer
+#edit account
+class ChangeEmailForm(forms.Form):
+    email = forms.EmailField(label="New Email")
+
+
+class ChangePostcodeForm(forms.Form):
+    postcode = forms.CharField(
+        max_length=7,
+        min_length=5,
+        label="New Postcode"
+    )
 
 class ProducerBioForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):

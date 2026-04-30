@@ -29,30 +29,40 @@
                         <th>Unit Price</th>
                         <th>Quantity</th>
                         <th>Subtotal</th>
+                        <!-- FOOD MILES COLUMN HEADER - TC-013 -->
+                        <th>Food Miles</th>
                         <!-- REMOVE COLUMN HEADER FOR THE DELETE BUTTONS -->
                         <th>Remove</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for item in basket_items %}
+                    {% for entry in basket_with_miles %}
                         <tr class="basket-row">
-                            <td>{{ item.product.name }}</td>
-                            <td>{{ item.product.producer.business_name }}</td>
+                            <td>{{ entry.item.product.name }}</td>
+                            <td>{{ entry.item.product.producer.business_name }}</td>
                             <!-- DISPLAY THE SURPLUS-DISCOUNTED PRICE PER UNIT INCLUDING THE UNIT TYPE -->
                             <td>
-                                {% if item.product.is_surplus and item.product.discount_percent > 0 %}
-                                    <span style="text-decoration: line-through; color: #999;">£{{ item.product.price }}</span>
-                                    £{{ item.product.discounted_price|floatformat:2 }} / {{ item.product.unit }}
+                                {% if entry.item.product.is_surplus and entry.item.product.discount_percent > 0 %}
+                                    <span style="text-decoration: line-through; color: #999;">£{{ entry.item.product.price }}</span>
+                                    £{{ entry.item.product.discounted_price|floatformat:2 }} / {{ entry.item.product.unit }}
                                 {% else %}
-                                    £{{ item.product.price }} / {{ item.product.unit }}
+                                    £{{ entry.item.product.price }} / {{ entry.item.product.unit }}
                                 {% endif %}
                             </td>
-                            <td>{{ item.quantity }}</td>
+                            <td>{{ entry.item.quantity }}</td>
                             <!-- CALCULATE AND DISPLAY THE LINE TOTAL FOR THIS ITEM -->
-                            <td>£{{ item.get_subtotal }}</td>
+                            <td>£{{ entry.item.get_subtotal }}</td>
+                            <!-- FOOD MILES PER PRODUCT - TC-013 -->
+                            <td>
+                                {% if entry.food_miles is not None %}
+                                    🌍 {{ entry.food_miles }} miles
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
                             <!-- REMOVE FROM BASKET FORM - POSTS TO THE REMOVE VIEW -->
                             <td>
-                                <form method="post" action="{% url 'remove_from_basket' item.id %}">
+                                <form method="post" action="{% url 'remove_from_basket' entry.item.id %}">
                                     {% csrf_token %}
                                     <button class="basket-remove-btn" type="submit" title="Remove item">✕</button>
                                 </form>
@@ -64,7 +74,10 @@
                     <!-- GRAND TOTAL ROW AT THE BOTTOM OF THE TABLE -->
                     <tr class="basket-total-row">
                         <td colspan="4"><strong>Total</strong></td>
-                        <td colspan="2"><strong>£{{ total }}</strong></td>
+                        <td><strong>£{{ total }}</strong></td>
+                        <!-- TOTAL FOOD MILES - TC-013 -->
+                        <td><strong>🌍 {{ total_food_miles }} miles</strong></td>
+                        <td></td>
                     </tr>
                 </tfoot>
             </table>
