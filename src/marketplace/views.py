@@ -169,22 +169,19 @@ def _build_recurring_data_from_checkout(form, customer_profile):
     }
 
 
+def _get_next_weekday_after(anchor_date, weekday):
+    # RETURN THE NEXT OCCURRENCE OF A WEEKDAY STRICTLY AFTER ANCHOR_DATE
+    days_ahead = (weekday - anchor_date.weekday()) % 7
+    if days_ahead == 0:
+        days_ahead = 7
+    return anchor_date + timedelta(days=days_ahead)
+
+
 def _create_recurring_order(customer_profile, order, recurring_data):
     # CREATE THE TEMPLATE FROM THE CHECKOUT ORDER SNAPSHOT
-    # ADVANCE NEXT_ORDER_DATE BY ONE CYCLE - INITIAL ORDER IS ALREADY IN ONE-OFF ORDERS
-    initial_date = date.fromisoformat(recurring_data['next_order_date'])
-    frequency = recurring_data['frequency']
-    if frequency == 'FORTNIGHTLY':
-        next_date = initial_date + timedelta(days=14)
-    elif frequency == 'MONTHLY':
-        month = initial_date.month + 1
-        year = initial_date.year
-        if month > 12:
-            month, year = 1, year + 1
-        next_date = date(year, month, min(initial_date.day, 28))
-    else:
-        # WEEKLY (DEFAULT)
-        next_date = initial_date + timedelta(days=7)
+    # FIRST RUN IS ALIGNED TO THE NEXT SELECTED RECURRENCE DAY, NOT HARD-CODED +7 DAYS
+    order_created_date = order.created_at.date()
+    next_date = _get_next_weekday_after(order_created_date, recurring_data['recurrence_day'])
 
     recurring_order = RecurringOrder.objects.create(
         customer=customer_profile,

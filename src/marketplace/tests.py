@@ -337,6 +337,12 @@ class RecurringOrderFlowTests(TestCase):
             delivery_date += timedelta(days=1)
         return delivery_date
 
+    def _next_weekday_after(self, anchor_date, weekday):
+        days_ahead = (weekday - anchor_date.weekday()) % 7
+        if days_ahead == 0:
+            days_ahead = 7
+        return anchor_date + timedelta(days=days_ahead)
+
     def _create_recurring_checkout_order(self):
         BasketItem.objects.create(customer=self.customer, product=self.veg, quantity=2)
         BasketItem.objects.create(customer=self.customer, product=self.dairy, quantity=1)
@@ -364,6 +370,7 @@ class RecurringOrderFlowTests(TestCase):
 
     def test_recurring_order_flow_supports_next_order_only_modification(self):
         checkout_response, order, recurring_order, delivery_date = self._create_recurring_checkout_order()
+        expected_next_run_date = self._next_weekday_after(order.created_at.date(), recurring_order.recurrence_day)
 
         self.assertRedirects(checkout_response, reverse('order_confirmation', args=[order.id]))
         self.assertEqual(order.items.count(), 3)
@@ -371,14 +378,14 @@ class RecurringOrderFlowTests(TestCase):
         self.assertEqual(recurring_order.recurrence_day, 0)
         self.assertEqual(recurring_order.delivery_week_offset, 0)
         self.assertEqual(recurring_order.delivery_day, 2)
-        self.assertEqual(recurring_order.next_order_date, delivery_date)
+        self.assertEqual(recurring_order.next_order_date, expected_next_run_date)
         self.assertEqual(recurring_order.items.get(product=self.veg).quantity, 2)
 
         manage_response = self.client.get(reverse('manage_recurring_orders'))
         self.assertEqual(manage_response.status_code, 200)
         self.assertContains(manage_response, 'Monday')
         self.assertContains(manage_response, 'Same week - Wednesday')
-        self.assertContains(manage_response, delivery_date.strftime('%d %b %Y'))
+        self.assertContains(manage_response, expected_next_run_date.strftime('%d %b %Y'))
 
         update_response = self.client.post(
             reverse('update_recurring_order_next_order', args=[recurring_order.id]),
@@ -433,19 +440,21 @@ class RecurringOrderFlowTests(TestCase):
         self.assertIn('Recurring delivery must be at least 48 hours after the recurrence day.', invalid_form.errors['recurring_delivery_day'])
 
     def test_due_recurring_order_is_generated_and_advanced(self):
+        run_date = date.today()
+        expected_delivery_date = run_date + timedelta(days=2)
         recurring_order = RecurringOrder.objects.create(
             customer=self.customer,
             frequency='WEEKLY',
-            recurrence_day=0,
+            recurrence_day=run_date.weekday(),
             delivery_week_offset=0,
-            delivery_day=2,
+            delivery_day=(run_date.weekday() + 2) % 7,
             delivery_address=self.customer.address,
-            next_order_date=date.today(),
+            next_order_date=run_date,
         )
         RecurringOrderUpcomingItem.objects.create(
             recurring_order=recurring_order,
             product=self.veg,
-            scheduled_for=date.today(),
+            scheduled_for=run_date,
             quantity=5,
         )
         recurring_order.items.create(product=self.veg, quantity=2)
@@ -454,13 +463,14 @@ class RecurringOrderFlowTests(TestCase):
 
         generated_order = CustomerOrder.objects.get(source_recurring_order=recurring_order)
         self.assertEqual(result['created_count'], 1)
-        self.assertEqual(generated_order.source_scheduled_for, date.today())
+        self.assertEqual(generated_order.source_scheduled_for, run_date)
+        self.assertEqual(generated_order.preferred_delivery_date, expected_delivery_date)
         self.assertEqual(generated_order.status, 'DELIVERED')
         self.assertEqual(generated_order.items.get(product=self.veg).quantity, 5)
 
         recurring_order.refresh_from_db()
-        self.assertEqual(recurring_order.next_order_date, date.today() + timedelta(days=7))
-        self.assertFalse(RecurringOrderUpcomingItem.objects.filter(recurring_order=recurring_order, scheduled_for=date.today()).exists())
+        self.assertEqual(recurring_order.next_order_date, run_date + timedelta(days=7))
+        self.assertFalse(RecurringOrderUpcomingItem.objects.filter(recurring_order=recurring_order, scheduled_for=run_date).exists())
         self.assertTrue(Notification.objects.filter(user=self.customer_user, message__contains='Recurring order').exists())
 
         self.client.login(username='veg_producer', password='testpass123')

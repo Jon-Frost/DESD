@@ -42,6 +42,20 @@ def _advance_recurring_date(current_date, frequency):
     return current_date + timedelta(days=7)
 
 
+def _calculate_delivery_date(order_run_date, delivery_week_offset, delivery_day):
+    # MAP THE RUN DATE TO ITS DELIVERY DATE USING THE STORED SAME-WEEK/NEXT-WEEK SLOT
+    run_weekday = order_run_date.weekday()
+
+    if delivery_week_offset == 0:
+        day_gap = delivery_day - run_weekday
+        if day_gap < 0:
+            day_gap += 7
+    else:
+        day_gap = (7 - run_weekday) + delivery_day
+
+    return order_run_date + timedelta(days=day_gap)
+
+
 def _get_effective_recurring_items(recurring_order, scheduled_for):
     # APPLY NEXT-ORDER OVERRIDES ON TOP OF TEMPLATE ITEMS FOR THE SCHEDULED DATE
     overrides = {
@@ -71,6 +85,11 @@ def process_due_recurring_orders():
 
     for recurring_order in due_orders:
         scheduled_for = recurring_order.next_order_date
+        delivery_date = _calculate_delivery_date(
+            scheduled_for,
+            recurring_order.delivery_week_offset,
+            recurring_order.delivery_day,
+        )
 
         if CustomerOrder.objects.filter(
             source_recurring_order=recurring_order,
@@ -110,7 +129,7 @@ def process_due_recurring_orders():
                 source_recurring_order=recurring_order,
                 source_scheduled_for=scheduled_for,
                 delivery_address=recurring_order.delivery_address,
-                preferred_delivery_date=scheduled_for,
+                preferred_delivery_date=delivery_date,
                 card_holder_name='Recurring Checkout',
                 card_number_last4='4242',
                 total_price=total_price,
@@ -142,7 +161,7 @@ def process_due_recurring_orders():
         create_notification.delay(
             recurring_order.customer.user.id,
             (
-                f'Recurring order #{order.id} has been processed for {scheduled_for}. '
+                f'Recurring order #{order.id} has been processed on {scheduled_for} for delivery {delivery_date}. '
                 f'Receipt total: £{order.total_price}.'
             )
         )
@@ -151,7 +170,7 @@ def process_due_recurring_orders():
             create_notification.delay(
                 producer_user_id,
                 (
-                    f'Recurring order #{order.id} has been settled and delivered for {scheduled_for}: '
+                    f'Recurring order #{order.id} has been settled and delivered for {delivery_date}: '
                     f'{", ".join(lines)}.'
                 )
             )
