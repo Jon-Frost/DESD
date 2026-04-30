@@ -6,7 +6,7 @@ from decimal import Decimal, InvalidOperation
 from django.db.models import Q
 from .models import Producer, Customer, Product, BasketItem, CustomerOrder, OrderItem, RecurringOrder, RecurringOrderItem, Notification, Recipe, RecipeImage
 from .forms import CustomerSignupForm, ProducerSignupForm, ProductForm, ProducerBioForm, CheckoutForm, RecipeForm
-from django.db.models import Q, Sum
+from django.db.models import Q, Sum, Count, Avg
 from django.contrib.auth.models import User
 from .models import Producer, Customer, Product, BasketItem, CustomerOrder, OrderItem, RecurringOrder, RecurringOrderItem, Notification, ProductReview
 from .forms import CustomerSignupForm, ProducerSignupForm, ProductForm, ProducerBioForm, CheckoutForm
@@ -15,6 +15,10 @@ from reportlab.pdfgen import canvas
 from django.http import HttpResponse
 from .tasks import create_notification
 from datetime import date, timedelta
+from django.contrib.auth import logout
+from django.contrib.auth.views import PasswordChangeView
+from django.urls import reverse_lazy
+from .forms import ChangeEmailForm, ChangePostcodeForm
 
 try:
     import stripe
@@ -35,6 +39,62 @@ def _parse_report_date(date_input):
     except ValueError:
         return None
 
+#change password
+class CustomPasswordChangeView(PasswordChangeView):
+    template_name = 'marketplace/change_password.html'
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+
+        # ✅ ADD MESSAGE HERE
+        messages.success(self.request, "Password updated. Please log in again.")
+
+        logout(self.request)  # logs user out after change
+        return response
+
+    def get_success_url(self):
+        return reverse_lazy('login')
+    
+@login_required
+def edit_account(request):
+    customer_profile = _get_logged_in_customer(request.user)
+    producer_profile = _get_logged_in_producer(request.user)
+
+    profile = customer_profile or producer_profile
+
+    email_form = ChangeEmailForm()
+    postcode_form = ChangePostcodeForm()
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if action == 'change_email':
+            email_form = ChangeEmailForm(request.POST)
+            if email_form.is_valid():
+                new_email = email_form.cleaned_data['email']
+                request.user.email = new_email
+                request.user.save()
+
+                profile.email = new_email
+                profile.save()
+
+                messages.success(request, 'Email updated successfully.')
+                return redirect('edit_account')
+
+        elif action == 'change_postcode':
+            postcode_form = ChangePostcodeForm(request.POST)
+            if postcode_form.is_valid():
+                profile.postcode = postcode_form.cleaned_data['postcode']
+                profile.save()
+
+                messages.success(request, 'Postcode updated successfully.')
+                return redirect('edit_account')
+
+    return render(request, 'marketplace/edit_account.html', {
+        'email_form': email_form,
+        'postcode_form': postcode_form,
+        'profile': profile,
+    })
 
 def _build_admin_report_data(report_type, parsed_from=None, parsed_to=None):
     # FINANCIAL REPORT DATA
@@ -495,7 +555,10 @@ def customer_market(request):
     season_from_input = request.GET.get('season_from', '').strip().upper()
     season_to_input = request.GET.get('season_to', '').strip().upper()
 
-    products = Product.objects.select_related('producer').order_by('name')
+    products = Product.objects.select_related('producer').annotate(
+        avg_rating=Avg('reviews__rating'),
+        review_count=Count('reviews')
+    ).order_by('name')
 
     # APPLY CASE-INSENSITIVE NAME SEARCH WHEN A SEARCH TERM IS PROVIDED
     if search_input:
@@ -598,10 +661,26 @@ def producer_bio(request):
 @login_required
 def producer_bio_public(request, producer_id):
     producer = get_object_or_404(Producer, id=producer_id)
+
+    products = producer.products.annotate(
+        avg_rating=Avg('reviews__rating'),
+        review_count=Count('reviews')
+    )
+
+    producer_rating = products.aggregate(
+        avg=Avg('reviews__rating'),
+        count=Count('reviews')
+    )
+
     return render(
         request,
         'marketplace/producer_bio_public.html',
-        {'producer': producer}
+        {
+            'producer': producer,
+            'products': products,
+            'producer_avg_rating': producer_rating['avg'],
+            'producer_review_count': producer_rating['count'],
+        }
     )
 
 
@@ -957,6 +1036,7 @@ def submit_product_review(request, order_item_id):
         # READ AND VALIDATE RATING INPUT
         rating_raw = request.POST.get('rating', '').strip()
         comment = request.POST.get('comment', '').strip()
+        is_anonymous = request.POST.get('is_anonymous') == 'on'
 
         try:
             rating = int(rating_raw)
@@ -975,6 +1055,7 @@ def submit_product_review(request, order_item_id):
                 'product': order_item.product,
                 'rating': rating,
                 'comment': comment,
+                'is_anonymous': is_anonymous,
             },
         )
 
@@ -986,6 +1067,7 @@ def submit_product_review(request, order_item_id):
         review.product = order_item.product
         review.rating = rating
         review.comment = comment
+        review.is_anonymous = is_anonymous
         review.save()
 
         # CREATE A PRODUCER NOTIFICATION SO REVIEWS APPEAR IN THE NOTIFICATIONS PAGE
@@ -1010,7 +1092,20 @@ def submit_product_review(request, order_item_id):
 
     return redirect('order_history')
 
+#Customer Review
+@login_required
+def product_reviews(request, product_id):
+    product = get_object_or_404(Product, id=product_id)
 
+    reviews = ProductReview.objects.filter(product=product).select_related(
+        'customer',
+        'order_item__order'
+    ).order_by('-created_at')
+
+    return render(request, 'marketplace/product_reviews.html', {
+        'product': product,
+        'reviews': reviews,
+    })
 # PRODUCER REVIEWS VIEW - SHOWS ALL REVIEWS LEFT BY CUSTOMERS FOR THIS PRODUCER'S PRODUCTS
 @login_required
 def producer_reviews(request):

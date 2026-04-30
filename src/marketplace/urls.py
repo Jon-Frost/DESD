@@ -1,6 +1,9 @@
 from django.urls import path
 from . import views
 from django.contrib.auth import views as auth_views
+from django.contrib.auth.views import PasswordChangeView
+from django.urls import path, reverse_lazy
+from .views import CustomPasswordChangeView
 
 
 # CUSTOM LOGIN VIEW - HANDLES REMEMBER ME CHECKBOX BY TOGGLING SESSION EXPIRY
@@ -27,7 +30,9 @@ urlpatterns = [
     path('signup/customer/', views.signup_customer, name='signup_customer'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('login/', RememberMeLoginView.as_view(), name='login'),
+    path('account/edit/', views.edit_account, name='edit_account'),
     path('products/add/', views.add_product, name='add_product'),
+    path('account/password/',CustomPasswordChangeView.as_view(),name='change_password'),
     path('market/', views.customer_market, name='customer_market'),
     path('producer/bio/', views.producer_bio, name='producer_bio'),
     path('producers/<int:producer_id>/', views.producer_bio_public, name='producer_bio_public'),
