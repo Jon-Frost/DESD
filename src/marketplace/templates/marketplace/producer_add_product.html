@@ -9,7 +9,7 @@
             <h2 class="auth-title">Add New Produce</h2>
             <p class="auth-subtitle">List your fresh Bristol items for the local community.</p>
 
-            <form method="post" class="auth-form">
+            <form method="post" class="auth-form" enctype="multipart/form-data">
                 {% csrf_token %}
 
                 {% for field in form %}

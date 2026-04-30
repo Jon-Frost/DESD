@@ -1,6 +1,22 @@
 from django.urls import path
 from . import views
 from django.contrib.auth import views as auth_views
+from django.contrib.auth.views import PasswordChangeView
+from django.urls import path, reverse_lazy
+from .views import CustomPasswordChangeView
+
+
+# CUSTOM LOGIN VIEW - HANDLES REMEMBER ME CHECKBOX BY TOGGLING SESSION EXPIRY
+class RememberMeLoginView(auth_views.LoginView):
+    template_name = 'marketplace/login.html'
+
+    def form_valid(self, form):
+        remember_me = self.request.POST.get('remember_me')
+        if not remember_me:
+            # NO REMEMBER ME - SESSION EXPIRES WHEN BROWSER CLOSES
+            self.request.session.set_expiry(0)
+        return super().form_valid(form)
+
 
 urlpatterns = [
     path('', views.home, name='home'),
@@ -13,8 +29,10 @@ urlpatterns = [
     path('signup/producer/', views.signup_producer, name='signup_producer'),
     path('signup/customer/', views.signup_customer, name='signup_customer'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
-    path('login/', auth_views.LoginView.as_view(template_name='marketplace/login.html'), name='login'),
+    path('login/', RememberMeLoginView.as_view(), name='login'),
+    path('account/edit/', views.edit_account, name='edit_account'),
     path('products/add/', views.add_product, name='add_product'),
+    path('account/password/',CustomPasswordChangeView.as_view(),name='change_password'),
     path('market/', views.customer_market, name='customer_market'),
     path('producer/bio/', views.producer_bio, name='producer_bio'),
     path('producers/<int:producer_id>/', views.producer_bio_public, name='producer_bio_public'),
@@ -32,12 +50,14 @@ urlpatterns = [
     path('orders/<int:order_id>/reorder/', views.reorder, name='reorder'),
     path('orders/<int:order_id>/receipt/', views.download_receipt, name='download_receipt'),
     path('producer/orders/', views.producer_orders, name='producer_orders'),
+    path('producer/orders/completed/', views.producer_completed_orders, name='producer_completed_orders'),
     path('producer/reviews/', views.producer_reviews, name='producer_reviews'),
     path('producer/orders/<int:order_id>/update/', views.update_order_status, name='update_order_status'),
     path('producer/settlements/', views.payment_settlements, name='payment_settlements'),
     path('producer/settlements/<str:week_start_str>/pdf/', views.download_settlement_pdf, name='download_settlement_pdf'),
     path('orders/recurring/setup/', views.setup_recurring_order, name='setup_recurring_order'),
     path('orders/recurring/cancel/', views.cancel_recurring_setup, name='cancel_recurring_setup'),
+    path('orders/recurring/cancel-date-update/', views.cancel_recurring_for_date_update, name='cancel_recurring_for_date_update'),
     path('orders/recurring/', views.manage_recurring_orders, name='manage_recurring_orders'),
     path('orders/recurring/<int:recurring_order_id>/update/', views.update_recurring_order_status, name='update_recurring_order_status'),
     path('notifications/', views.notifications, name='notifications'),

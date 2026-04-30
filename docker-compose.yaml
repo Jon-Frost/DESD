@@ -33,10 +33,15 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - DB_HOST=${DB_HOST}
       - DB_PORT=${DB_PORT}
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
       
-    depends_on: # WILL REQUIRE THE DB TO BE HEALTHY BEFORE THE WEB SERVICE STARTS
+    depends_on: # WILL REQUIRE THE DB AND REDIS TO BE READY BEFORE THE WEB SERVICE STARTS
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   adminer:
     image: adminer
@@ -44,6 +49,33 @@ services:
       - "8080:8080"
     depends_on:
       - db
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  celery:
+    build: .
+    command: sh -c "cd src && celery -A core worker --loglevel=info"
+    volumes:
+      - .:/src
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+    depends_on: # REQUIRES DB AND REDIS TO BE READY BEFORE STARTING
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
 volumes:
   postgres_data:

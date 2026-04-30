@@ -54,6 +54,10 @@
                                 rows="2"
                                 placeholder="Share your feedback"
                             >{% if item.customer_review %}{{ item.customer_review.comment }}{% endif %}</textarea>
+                            <label class="order-review-label">
+                                <input type="checkbox" name="is_anonymous" {% if item.customer_review and item.customer_review.is_anonymous %}checked{% endif %}>
+                                Review anonymously
+                            </label>
 
                             <button type="submit" class="order-review-btn">
                                 {% if item.customer_review %}Update Review{% else %}Submit Review{% endif %}

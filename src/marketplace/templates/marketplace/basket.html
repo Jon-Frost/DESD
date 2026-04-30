@@ -92,15 +92,9 @@
                 </tfoot>
             </table>
 
-            <!-- RECURRING ORDER BUTTON - LETS CUSTOMERS SET UP A RECURRING ORDER FROM THEIR BASKET -->
-            <div class="basket-recurring-btn-wrapper">
-                <a href="{% url 'setup_recurring_order' %}" class="nav-link">
-                    Set Up as Recurring Order
-                </a>
-            </div>
         </div>
 
-        <!-- CHECKOUT FORM - COLLECTS DELIVERY ADDRESS, DATE, AND CARD DETAILS -->
+        <!-- CHECKOUT FORM - CONFIRMS PROFILE DELIVERY ADDRESS, DATE, AND CARD DETAILS -->
         <div class="basket-checkout-panel">
             <h3 class="basket-checkout-title">Checkout Details</h3>
             {% if stripe_enabled %}
@@ -124,18 +118,9 @@
             <form class="auth-form" method="post" action="{% url 'checkout' %}">
                 {% csrf_token %}
 
-                <!-- DELIVERY ADDRESS FIELD -->
                 <div class="auth-field-group">
-                    <label class="auth-label" for="{{ form.delivery_address.id_for_label }}">
-                        {{ form.delivery_address.label }}
-                    </label>
-                    {{ form.delivery_address }}
-                    <!-- SHOW VALIDATION ERRORS IF PRESENT -->
-                    {% if form.delivery_address.errors %}
-                        {% for error in form.delivery_address.errors %}
-                            <p class="field-error-msg">{{ error }}</p>
-                        {% endfor %}
-                    {% endif %}
+                    <label class="auth-label">Delivery Address</label>
+                    <p class="auth-field">{{ customer_address }}</p>
                 </div>
 
                 <!-- PREFERRED DELIVERY DATE FIELD -->
@@ -143,12 +128,35 @@
                     <label class="auth-label" for="{{ form.preferred_delivery_date.id_for_label }}">
                         {{ form.preferred_delivery_date.label }}
                     </label>
-                    {{ form.preferred_delivery_date }}
+                    <div class="basket-date-row">
+                        {{ form.preferred_delivery_date }}
+                        {% if recurring_order_setup %}
+                        <button
+                            type="button"
+                            id="update-delivery-date-btn"
+                            class="basket-update-date-btn"
+                            style="display: none;"
+                            data-cancel-url="{% url 'cancel_recurring_for_date_update' %}"
+                            data-csrf="{{ csrf_token }}"
+                        >Update delivery date</button>
+                        {% endif %}
+                    </div>
                     {% if form.preferred_delivery_date.errors %}
                         {% for error in form.preferred_delivery_date.errors %}
                             <p class="field-error-msg">{{ error }}</p>
                         {% endfor %}
                     {% endif %}
+                </div>
+
+                <!-- RECURRING ORDER LINK - SHOWN ONCE A DELIVERY DATE IS ENTERED -->
+                <div
+                    id="recurring-order-link-wrapper"
+                    class="basket-recurring-btn-wrapper"
+                    {% if not form.preferred_delivery_date.value %}style="display: none;"{% endif %}
+                >
+                    <a id="setup-recurring-order-link" href="{% url 'setup_recurring_order' %}" class="nav-link">
+                        Set Up as Recurring Order
+                    </a>
                 </div>
 
                 {% if not stripe_enabled %}
@@ -208,8 +216,12 @@
                 </div>
                 {% endif %}
 
-                <!-- PLACE ORDER BUTTON - SUBMITS THE CHECKOUT FORM -->
-                <button class="auth-submit-btn basket-place-order-btn" type="submit">
+                <!-- PLACE ORDER BUTTON -->
+                <button
+                    id="basket-submit-btn"
+                    class="auth-submit-btn basket-place-order-btn"
+                    type="submit"
+                >
                     {% if stripe_enabled %}
                         Proceed to Test Payment — £{{ total }}
                     {% else %}
@@ -229,4 +241,56 @@
     {% endif %}
         
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const deliveryDateInput   = document.getElementById('{{ form.preferred_delivery_date.id_for_label }}');
+        const recurringWrapper    = document.getElementById('recurring-order-link-wrapper');
+        const recurringLink       = document.getElementById('setup-recurring-order-link');
+        const updateBtn           = document.getElementById('update-delivery-date-btn');
+        const recurringBaseUrl    = '{% url "setup_recurring_order" %}';
+        const recurringDate       = '{{ recurring_order_setup.next_order_date|default:"" }}';
+
+        if (!deliveryDateInput || !recurringWrapper || !recurringLink) return;
+
+        function updateUI() {
+            const val = deliveryDateInput.value;
+
+            // Show/hide recurring setup link
+            if (val) {
+                recurringLink.href = `${recurringBaseUrl}?preferred_delivery_date=${encodeURIComponent(val)}`;
+                recurringWrapper.style.display = '';
+            } else {
+                recurringWrapper.style.display = 'none';
+            }
+
+            // Show update button only when recurring is pending and date has changed
+            if (updateBtn && recurringDate && val && val !== recurringDate) {
+                updateBtn.style.display = '';
+            } else if (updateBtn) {
+                updateBtn.style.display = 'none';
+            }
+        }
+
+        if (updateBtn) {
+            updateBtn.addEventListener('click', function () {
+                const newDate = deliveryDateInput.value;
+                fetch(updateBtn.dataset.cancelUrl, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': updateBtn.dataset.csrf, 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: 'csrfmiddlewaretoken=' + encodeURIComponent(updateBtn.dataset.csrf)
+                }).then(function () {
+                    const reloadUrl = newDate
+                        ? window.location.pathname + '?preferred_delivery_date=' + encodeURIComponent(newDate)
+                        : window.location.pathname;
+                    window.location.href = reloadUrl;
+                });
+            });
+        }
+
+        updateUI();
+        deliveryDateInput.addEventListener('change', updateUI);
+        deliveryDateInput.addEventListener('input', updateUI);
+    });
+</script>
 {% endblock %}

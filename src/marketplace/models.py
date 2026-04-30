@@ -82,6 +82,7 @@ class Product(models.Model):
     category = models.CharField(max_length=10, choices=CATEGORY_CHOICES)
     seasonal_from = models.CharField(max_length=10, choices=SEASON_CHOICES, default='SPRING')
     seasonal_to = models.CharField(max_length=10, choices=SEASON_CHOICES, default='WINTER')
+    image = models.ImageField(upload_to='products/', blank=True, null=True)
 
     def __str__(self):
         return f"{self.name} - {self.producer.business_name}"
@@ -239,9 +240,20 @@ class Recipe(models.Model):
     seasonal_tag = models.CharField(max_length=10, choices=SEASON_CHOICES, default='ALL')
     linked_products = models.ManyToManyField(Product, blank=True, related_name='recipes')
     created_at = models.DateTimeField(auto_now_add=True)
+    image = models.ImageField(upload_to='recipes/', blank=True, null=True)
 
     def __str__(self):
         return f"{self.title} by {self.producer.business_name}"
+
+
+class RecipeImage(models.Model):
+    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE, related_name='images')
+    image = models.ImageField(upload_to='recipes/')
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Image for recipe #{self.recipe_id}"
+
 # PRODUCT REVIEW MODEL - ALLOWS CUSTOMERS TO REVIEW ONLY PRODUCTS THEY HAVE PURCHASED
 class ProductReview(models.Model):
     # LINK REVIEW TO THE CUSTOMER WHO WROTE IT
@@ -263,6 +275,7 @@ class ProductReview(models.Model):
 
     # OPTIONAL WRITTEN FEEDBACK
     comment = models.TextField(blank=True)
+    is_anonymous = models.BooleanField(default=False)
 
     # REVIEW TIMESTAMPS
     created_at = models.DateTimeField(auto_now_add=True)

@@ -1,7 +1,22 @@
 from django import forms
 from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 from .models import Producer, Customer, Product, Recipe
 import datetime
+
+
+class MultipleFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+
+class MultipleFileField(forms.FileField):
+    def clean(self, data, initial=None):
+        single_file_clean = super().clean
+        if isinstance(data, (list, tuple)):
+            return [single_file_clean(item, initial) for item in data if item]
+        cleaned_file = single_file_clean(data, initial)
+        return [cleaned_file] if cleaned_file else []
 
 class ProducerSignupForm(forms.ModelForm):
     username = forms.CharField(max_length=150)
@@ -10,6 +25,15 @@ class ProducerSignupForm(forms.ModelForm):
     class Meta:
         model = Producer
         fields = ['business_name', 'contact_name', 'email', 'phone_number', 'business_address', 'postcode']
+
+    # ENFORCE AUTH_PASSWORD_VALIDATORS BEFORE THE USER IS CREATED
+    def clean_password(self):
+        password = self.cleaned_data.get('password')
+        try:
+            validate_password(password)
+        except ValidationError as e:
+            raise forms.ValidationError(e.messages)
+        return password
 
     def save(self, commit=True):
         user = User.objects.create_user(
@@ -31,6 +55,15 @@ class CustomerSignupForm(forms.ModelForm):
         model = Customer
         fields = ['name', 'email', 'phone_number', 'address', 'postcode']
 
+    # ENFORCE AUTH_PASSWORD_VALIDATORS BEFORE THE USER IS CREATED
+    def clean_password(self):
+        password = self.cleaned_data.get('password')
+        try:
+            validate_password(password)
+        except ValidationError as e:
+            raise forms.ValidationError(e.messages)
+        return password
+
     def save(self, commit=True):
         user = User.objects.create_user(
             username=self.cleaned_data['username'],
@@ -42,6 +75,17 @@ class CustomerSignupForm(forms.ModelForm):
         if commit:
             customer.save()
         return customer
+#edit account
+class ChangeEmailForm(forms.Form):
+    email = forms.EmailField(label="New Email")
+
+
+class ChangePostcodeForm(forms.Form):
+    postcode = forms.CharField(
+        max_length=7,
+        min_length=5,
+        label="New Postcode"
+    )
 
 class ProducerBioForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
@@ -104,6 +148,7 @@ class ProductForm(forms.ModelForm):
             'allergens',
             'is_surplus',
             'discount_percent',
+            'image',
         ]
         widgets = {
             'description': forms.Textarea(attrs={'rows': 3}),
@@ -126,15 +171,8 @@ class ProductForm(forms.ModelForm):
         return product
 
 
-# CHECKOUT FORM - COLLECTS DELIVERY AND PAYMENT DETAILS FROM THE CUSTOMER AT CHECKOUT
+# CHECKOUT FORM - COLLECTS DELIVERY DATE AND PAYMENT DETAILS FROM THE CUSTOMER AT CHECKOUT
 class CheckoutForm(forms.Form):
-    # DELIVERY ADDRESS WHERE THE ORDER SHOULD BE SENT
-    delivery_address = forms.CharField(
-        max_length=300,
-        widget=forms.TextInput(attrs={'class': 'auth-field', 'placeholder': 'Enter full delivery address'}),
-        label='Delivery Address',
-    )
-
     # PREFERRED DATE THE CUSTOMER WOULD LIKE TO RECEIVE THEIR ORDER
     preferred_delivery_date = forms.DateField(
         widget=forms.DateInput(attrs={'class': 'auth-field', 'type': 'date'}),
@@ -199,6 +237,12 @@ class CheckoutForm(forms.Form):
         return expiry
     
 class RecipeForm(forms.ModelForm):
+    images = MultipleFileField(
+        required=False,
+        widget=MultipleFileInput(attrs={'class': 'auth-field', 'accept': 'image/*'}),
+        label='Recipe Images (upload one or more)'
+    )
+
     linked_products = forms.ModelMultipleChoiceField(
         queryset=Product.objects.none(),
         required=False,

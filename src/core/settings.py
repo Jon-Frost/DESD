@@ -21,7 +21,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-sm7#3+=#s9uolxy0!-vkkc*ubss@lm3pk3oj2^s&y*pc8kx59c'
+
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-sm7#3+=#s9uolxy0!-vkkc*ubss@lm3pk3oj2^s&y*pc8kx59c')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -40,6 +41,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'marketplace',
     'phonenumber_field',
+    'cloudinary_storage',
+    'cloudinary',
 ]
 
 MIDDLEWARE = [
@@ -104,12 +107,16 @@ AUTH_PASSWORD_VALIDATORS = [
     },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {'min_length': 8},
     },
     {
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
     },
     {
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+    },
+    {
+        'NAME': 'marketplace.validators.SpecialCharacterValidator',
     },
 ]
 
@@ -146,6 +153,30 @@ LOGOUT_REDIRECT_URL = 'home'
 LOGIN_REDIRECT_URL = 'home'
 LOGIN_URL = 'login'
 
+# SESSION SECURITY - EXPIRE AT BROWSER CLOSE UNLESS REMEMBER ME IS CHECKED
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+# REMEMBER ME EXTENDS SESSION TO 2 WEEKS (1209600 SECONDS)
+SESSION_COOKIE_AGE = 1209600
+# PREVENT SESSION COOKIE BEING ACCESSED VIA JAVASCRIPT
+SESSION_COOKIE_HTTPONLY = True
+
 # STRIPE TEST MODE KEYS (OPTIONAL)
 STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY', '')
 STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')
+
+# Media storage
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    'API_KEY': os.environ.get('CLOUDINARY_API_KEY'),
+    'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
+}
+
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
+MEDIA_URL = '/media/'
+
+# CELERY - USE REDIS AS THE MESSAGE BROKER AND RESULT BACKEND
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://redis:6379/0')
+CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'redis://redis:6379/0')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'

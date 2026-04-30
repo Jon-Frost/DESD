@@ -15,6 +15,23 @@ from reportlab.pdfgen import canvas
 from .models import Producer, Customer, Product, BasketItem, CustomerOrder, OrderItem, RecurringOrder, RecurringOrderItem, Notification, Recipe, ProductReview
 from .forms import CustomerSignupForm, ProducerSignupForm, ProductForm, ProducerBioForm, CheckoutForm, RecipeForm, ChangeEmailForm, ChangePostcodeForm
 from .utils import calculate_food_miles
+from decimal import Decimal, InvalidOperation
+from django.db.models import Q
+from .models import Producer, Customer, Product, BasketItem, CustomerOrder, OrderItem, RecurringOrder, RecurringOrderItem, Notification, Recipe, RecipeImage
+from .forms import CustomerSignupForm, ProducerSignupForm, ProductForm, ProducerBioForm, CheckoutForm, RecipeForm
+from django.db.models import Q, Sum, Count, Avg
+from django.contrib.auth.models import User
+from .models import Producer, Customer, Product, BasketItem, CustomerOrder, OrderItem, RecurringOrder, RecurringOrderItem, Notification, ProductReview
+from .forms import CustomerSignupForm, ProducerSignupForm, ProductForm, ProducerBioForm, CheckoutForm
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from django.http import HttpResponse
+from .tasks import create_notification
+from datetime import date, timedelta
+from django.contrib.auth import logout
+from django.contrib.auth.views import PasswordChangeView
+from django.urls import reverse_lazy
+from .forms import ChangeEmailForm, ChangePostcodeForm
 
 try:
     import stripe
@@ -35,6 +52,62 @@ def _parse_report_date(date_input):
     except ValueError:
         return None
 
+#change password
+class CustomPasswordChangeView(PasswordChangeView):
+    template_name = 'marketplace/change_password.html'
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+
+        # ✅ ADD MESSAGE HERE
+        messages.success(self.request, "Password updated. Please log in again.")
+
+        logout(self.request)  # logs user out after change
+        return response
+
+    def get_success_url(self):
+        return reverse_lazy('login')
+    
+@login_required
+def edit_account(request):
+    customer_profile = _get_logged_in_customer(request.user)
+    producer_profile = _get_logged_in_producer(request.user)
+
+    profile = customer_profile or producer_profile
+
+    email_form = ChangeEmailForm()
+    postcode_form = ChangePostcodeForm()
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if action == 'change_email':
+            email_form = ChangeEmailForm(request.POST)
+            if email_form.is_valid():
+                new_email = email_form.cleaned_data['email']
+                request.user.email = new_email
+                request.user.save()
+
+                profile.email = new_email
+                profile.save()
+
+                messages.success(request, 'Email updated successfully.')
+                return redirect('edit_account')
+
+        elif action == 'change_postcode':
+            postcode_form = ChangePostcodeForm(request.POST)
+            if postcode_form.is_valid():
+                profile.postcode = postcode_form.cleaned_data['postcode']
+                profile.save()
+
+                messages.success(request, 'Postcode updated successfully.')
+                return redirect('edit_account')
+
+    return render(request, 'marketplace/edit_account.html', {
+        'email_form': email_form,
+        'postcode_form': postcode_form,
+        'profile': profile,
+    })
 
 def _build_admin_report_data(report_type, parsed_from=None, parsed_to=None):
     # FINANCIAL REPORT DATA
@@ -121,7 +194,7 @@ def _create_customer_order_from_basket(customer_profile, basket_items, form_clea
 
     order = CustomerOrder.objects.create(
         customer=customer_profile,
-        delivery_address=form_cleaned_data['delivery_address'],
+        delivery_address=customer_profile.address,
         preferred_delivery_date=form_cleaned_data['preferred_delivery_date'],
         card_holder_name=form_cleaned_data.get('card_holder_name') or 'Stripe Checkout',
         card_number_last4=(form_cleaned_data.get('card_number', '')[-4:] or '4242'),
@@ -139,15 +212,16 @@ def _create_customer_order_from_basket(customer_profile, basket_items, form_clea
         item.product.stock_quantity -= item.quantity
         item.product.save()
 
-        Notification.objects.create(
-            user=item.product.producer.user,
-            message=f'New order #{order.id} received for {item.quantity}x {item.product.name} from {order.customer.name}. Delivery: {order.preferred_delivery_date}.'
+        # QUEUE ORDER + LOW-STOCK NOTIFICATIONS VIA CELERY
+        create_notification.delay(
+            item.product.producer.user.id,
+            f'New order #{order.id} received for {item.quantity}x {item.product.name} from {order.customer.name}. Delivery: {order.preferred_delivery_date}.'
         )
 
         if item.product.stock_quantity <= item.product.low_stock_threshold:
-            Notification.objects.create(
-                user=item.product.producer.user,
-                message=f'Low stock alert: {item.product.name} only has {item.product.stock_quantity} units remaining.'
+            create_notification.delay(
+                item.product.producer.user.id,
+                f'Low stock alert: {item.product.name} only has {item.product.stock_quantity} units remaining.'
             )
 
     basket_items.delete()
@@ -178,6 +252,35 @@ def _create_recurring_order_if_requested(request, customer_profile, order):
         request,
         f'Recurring {recurring_data["frequency"].lower()} order created successfully!'
     )
+
+
+def _get_matching_recurring_order(order, producer_items, producer_profile):
+    # MATCH THE INITIAL CONFIRMED ORDER TO ITS RECURRING TEMPLATE SO PRODUCERS CAN SEE IT IN INCOMING ORDERS
+    producer_item_quantities = {
+        item.product_id: item.quantity
+        for item in producer_items
+    }
+
+    if not producer_item_quantities:
+        return None
+
+    recurring_orders = RecurringOrder.objects.filter(
+        customer=order.customer,
+        delivery_address=order.delivery_address,
+        next_order_date=order.preferred_delivery_date,
+    ).prefetch_related('items__product')
+
+    for recurring_order in recurring_orders:
+        recurring_item_quantities = {
+            recurring_item.product_id: recurring_item.quantity
+            for recurring_item in recurring_order.items.all()
+            if recurring_item.product.producer_id == producer_profile.id
+        }
+
+        if recurring_item_quantities == producer_item_quantities:
+            return recurring_order
+
+    return None
 
 
 def home(request):
@@ -267,7 +370,7 @@ def add_product(request):
     producer_products = producer_profile.products.order_by('name')
 
     if request.method == 'POST':
-        form = ProductForm(request.POST)
+        form = ProductForm(request.POST, request.FILES)
         if form.is_valid():
             product = form.save(commit=False)
             product.producer = producer_profile
@@ -418,7 +521,7 @@ def edit_product(request, product_id):
     product = get_object_or_404(Product, id=product_id, producer=producer_profile)
 
     if request.method == 'POST':
-        form = ProductForm(request.POST, instance=product)
+        form = ProductForm(request.POST, request.FILES, instance=product)
         if form.is_valid():
             form.save()
             return redirect('add_product')
@@ -465,7 +568,10 @@ def customer_market(request):
     season_from_input = request.GET.get('season_from', '').strip().upper()
     season_to_input = request.GET.get('season_to', '').strip().upper()
 
-    products = Product.objects.select_related('producer').order_by('name')
+    products = Product.objects.select_related('producer').annotate(
+        avg_rating=Avg('reviews__rating'),
+        review_count=Count('reviews')
+    ).order_by('name')
 
     # APPLY CASE-INSENSITIVE NAME SEARCH WHEN A SEARCH TERM IS PROVIDED
     if search_input:
@@ -577,10 +683,26 @@ def producer_bio(request):
 @login_required
 def producer_bio_public(request, producer_id):
     producer = get_object_or_404(Producer, id=producer_id)
+
+    products = producer.products.annotate(
+        avg_rating=Avg('reviews__rating'),
+        review_count=Count('reviews')
+    )
+
+    producer_rating = products.aggregate(
+        avg=Avg('reviews__rating'),
+        count=Count('reviews')
+    )
+
     return render(
         request,
         'marketplace/producer_bio_public.html',
-        {'producer': producer}
+        {
+            'producer': producer,
+            'products': products,
+            'producer_avg_rating': producer_rating['avg'],
+            'producer_review_count': producer_rating['count'],
+        }
     )
 
 
@@ -687,6 +809,7 @@ def view_basket(request):
             'total_food_miles': round(total_food_miles, 1),
             'form': form,
             'recurring_order_setup': recurring_order_setup,
+            'customer_address': customer_profile.address,
         }
     )
 
@@ -729,6 +852,17 @@ def checkout(request):
     if request.method == 'POST':
         form = CheckoutForm(request.POST)
         if form.is_valid():
+            # IF A RECURRING ORDER IS PENDING AND THE DELIVERY DATE HAS BEEN CHANGED, CANCEL IT
+            recurring_order_data = request.session.get('recurring_order_data')
+            if recurring_order_data:
+                submitted_date = form.cleaned_data['preferred_delivery_date'].isoformat()
+                if submitted_date != recurring_order_data.get('next_order_date'):
+                    del request.session['recurring_order_data']
+                    messages.warning(
+                        request,
+                        'Recurring order cancelled due to updated delivery date.'
+                    )
+
             # RE-CHECK STOCK AVAILABILITY FOR ALL ITEMS BEFORE CONFIRMING THE ORDER
             for item in basket_items:
                 if item.quantity > item.product.stock_quantity:
@@ -772,7 +906,6 @@ def checkout(request):
                     return redirect('view_basket')
 
                 request.session['pending_checkout_data'] = {
-                    'delivery_address': form.cleaned_data['delivery_address'],
                     'preferred_delivery_date': form.cleaned_data['preferred_delivery_date'].isoformat(),
                     'card_holder_name': form.cleaned_data['card_holder_name'],
                     'card_number_last4': form.cleaned_data['card_number'][-4:],
@@ -796,6 +929,8 @@ def checkout(request):
                     'basket_items': basket_items_list,
                     'total': total,
                     'form': form,
+                    'recurring_order_setup': request.session.get('recurring_order_data', None),
+                    'customer_address': customer_profile.address,
                 }
             )
 
@@ -849,7 +984,7 @@ def stripe_checkout_success(request):
             return redirect('view_basket')
 
     order_data = {
-        'delivery_address': pending_data['delivery_address'],
+        'delivery_address': customer_profile.address,
         'preferred_delivery_date': date.fromisoformat(pending_data['preferred_delivery_date']),
         'card_holder_name': pending_data.get('card_holder_name') or 'Stripe Checkout',
         'card_number': pending_data.get('card_number_last4') or '4242',
@@ -938,6 +1073,7 @@ def submit_product_review(request, order_item_id):
         # READ AND VALIDATE RATING INPUT
         rating_raw = request.POST.get('rating', '').strip()
         comment = request.POST.get('comment', '').strip()
+        is_anonymous = request.POST.get('is_anonymous') == 'on'
 
         try:
             rating = int(rating_raw)
@@ -956,6 +1092,7 @@ def submit_product_review(request, order_item_id):
                 'product': order_item.product,
                 'rating': rating,
                 'comment': comment,
+                'is_anonymous': is_anonymous,
             },
         )
 
@@ -967,6 +1104,7 @@ def submit_product_review(request, order_item_id):
         review.product = order_item.product
         review.rating = rating
         review.comment = comment
+        review.is_anonymous = is_anonymous
         review.save()
 
         # CREATE A PRODUCER NOTIFICATION SO REVIEWS APPEAR IN THE NOTIFICATIONS PAGE
@@ -981,16 +1119,30 @@ def submit_product_review(request, order_item_id):
                 f'to {rating}/5 on order #{order_item.order.id}.'
             )
 
-        Notification.objects.create(
-            user=order_item.product.producer.user,
-            message=notification_message,
+        # QUEUE REVIEW NOTIFICATION VIA CELERY
+        create_notification.delay(
+            order_item.product.producer.user.id,
+            notification_message,
         )
 
         messages.success(request, f'Review saved for "{order_item.product.name}".')
 
     return redirect('order_history')
 
+#Customer Review
+@login_required
+def product_reviews(request, product_id):
+    product = get_object_or_404(Product, id=product_id)
 
+    reviews = ProductReview.objects.filter(product=product).select_related(
+        'customer',
+        'order_item__order'
+    ).order_by('-created_at')
+
+    return render(request, 'marketplace/product_reviews.html', {
+        'product': product,
+        'reviews': reviews,
+    })
 # PRODUCER REVIEWS VIEW - SHOWS ALL REVIEWS LEFT BY CUSTOMERS FOR THIS PRODUCER'S PRODUCTS
 @login_required
 def producer_reviews(request):
@@ -1132,10 +1284,55 @@ def producer_orders(request):
 
     # GET ALL ORDER ITEMS FOR THIS PRODUCER'S PRODUCTS
     order_items = OrderItem.objects.filter(
-        product__producer=producer_profile
+    product__producer=producer_profile
+).exclude(
+    order__status='DELIVERED'
+).select_related(
+    'order__customer', 'product'
+).order_by('order__preferred_delivery_date')
+
+    # GROUP ORDER ITEMS BY ORDER
+    orders_dict = {}
+    for item in order_items:
+        order = item.order
+        if order.id not in orders_dict:
+            orders_dict[order.id] = {
+                'order': order,
+                'items': [],
+                'recurring_order': None,
+            }
+        orders_dict[order.id]['items'].append(item)
+
+    for entry in orders_dict.values():
+        entry['recurring_order'] = _get_matching_recurring_order(
+            entry['order'],
+            entry['items'],
+            producer_profile,
+        )
+
+    orders = list(orders_dict.values())
+
+    return render(
+        request,
+        'marketplace/producer_orders.html',
+        {'orders': orders}
+    )
+
+
+# PRODUCER COMPLETED ORDERS VIEW - SHOWS DELIVERED ORDERS FOR THE PRODUCER
+@login_required
+def producer_completed_orders(request):
+    producer_profile = _get_logged_in_producer(request.user)
+    if producer_profile is None:
+        return redirect('home')
+
+    # GET ALL DELIVERED ORDER ITEMS FOR THIS PRODUCER'S PRODUCTS
+    order_items = OrderItem.objects.filter(
+        product__producer=producer_profile,
+        order__status='DELIVERED'
     ).select_related(
         'order__customer', 'product'
-    ).order_by('order__preferred_delivery_date')
+    ).order_by('-order__preferred_delivery_date')
 
     # GROUP ORDER ITEMS BY ORDER
     orders_dict = {}
@@ -1152,7 +1349,7 @@ def producer_orders(request):
 
     return render(
         request,
-        'marketplace/producer_orders.html',
+        'marketplace/producer_completed_orders.html',
         {'orders': orders}
     )
 
@@ -1179,10 +1376,10 @@ def update_order_status(request, order_id):
             order.status = new_status
             order.save()
 
-            # NOTIFY THE CUSTOMER OF THE STATUS CHANGE
-            Notification.objects.create(
-                user=order.customer.user,
-                message=f'Your order #{order.id} from {producer_profile.business_name} is now {order.get_status_display()}.'
+            # QUEUE STATUS-CHANGE NOTIFICATION VIA CELERY
+            create_notification.delay(
+                order.customer.user.id,
+                f'Your order #{order.id} from {producer_profile.business_name} is now {order.get_status_display()}.'
             )
 
             messages.success(request, f'Order #{order.id} status updated to {order.get_status_display()}.')
@@ -1366,22 +1563,35 @@ def setup_recurring_order(request):
     if request.method == 'POST':
         frequency = request.POST.get('frequency')
         delivery_address = request.POST.get('delivery_address')
-        next_order_date = request.POST.get('next_order_date')
+        locked_next_order_date = request.POST.get('locked_next_order_date', '').strip()
+
+        if not locked_next_order_date:
+            messages.error(
+                request,
+                'Please choose a preferred delivery date on the basket page before setting up a recurring order.'
+            )
+            return redirect('view_basket')
 
         valid_frequencies = [choice[0] for choice in RecurringOrder.FREQUENCY_CHOICES]
         if frequency not in valid_frequencies:
             messages.error(request, 'Invalid frequency selected.')
-            return redirect('setup_recurring_order')
+            return redirect(request.get_full_path())
 
         try:
-            next_order_date = date.fromisoformat(next_order_date)
+            next_order_date = date.fromisoformat(locked_next_order_date)
         except ValueError:
-            messages.error(request, 'Invalid date selected.')
-            return redirect('setup_recurring_order')
+            messages.error(
+                request,
+                'The selected preferred delivery date is invalid. Please pick the date again on the basket page.'
+            )
+            return redirect('view_basket')
 
         if next_order_date < date.today() + timedelta(days=2):
-            messages.error(request, 'First delivery must be at least 48 hours from now.')
-            return redirect('setup_recurring_order')
+            messages.error(
+                request,
+                'Recurring orders require first delivery at least 48 hours from now. Please choose a later preferred delivery date in checkout.'
+            )
+            return redirect('view_basket')
 
         # STORE THE RECURRING ORDER DETAILS IN THE SESSION
         request.session['recurring_order_data'] = {
@@ -1396,6 +1606,19 @@ def setup_recurring_order(request):
         )
         return redirect('view_basket')
 
+    preferred_delivery_date = request.GET.get('preferred_delivery_date', '').strip()
+    try:
+        prefilled_first_delivery_date = date.fromisoformat(preferred_delivery_date).isoformat() if preferred_delivery_date else ''
+    except ValueError:
+        prefilled_first_delivery_date = ''
+
+    if not prefilled_first_delivery_date:
+        messages.error(
+            request,
+            'Please select a preferred delivery date in checkout before setting up a recurring order.'
+        )
+        return redirect('view_basket')
+
     return render(
         request,
         'marketplace/setup_recurring_order.html',
@@ -1404,6 +1627,7 @@ def setup_recurring_order(request):
             'frequency_choices': RecurringOrder.FREQUENCY_CHOICES,
             'delivery_address': customer_profile.address,
             'min_date': (date.today() + timedelta(days=2)).isoformat(),
+            'prefilled_first_delivery_date': prefilled_first_delivery_date,
         }
     )
 
@@ -1423,71 +1647,19 @@ def cancel_recurring_setup(request):
     return redirect('view_basket')
 
 
-# SETUP RECURRING ORDER VIEW - CREATES A RECURRING ORDER FROM THE CUSTOMER'S BASKET
+# CANCEL RECURRING ORDER DUE TO DATE CHANGE - CLEARS SESSION AND SHOWS RELEVANT MESSAGE
 @login_required
-def setup_recurring_order(request):
+def cancel_recurring_for_date_update(request):
     customer_profile = _get_logged_in_customer(request.user)
     if customer_profile is None:
         return redirect('home')
 
-    basket_items = BasketItem.objects.filter(
-        customer=customer_profile
-    ).select_related('product')
-
-    if not basket_items.exists():
-        messages.error(request, 'Your basket is empty.')
-        return redirect('view_basket')
-
     if request.method == 'POST':
-        frequency = request.POST.get('frequency')
-        delivery_address = request.POST.get('delivery_address')
-        next_order_date = request.POST.get('next_order_date')
+        if 'recurring_order_data' in request.session:
+            del request.session['recurring_order_data']
+        messages.warning(request, 'Recurring order cancelled due to updated delivery date.')
 
-        valid_frequencies = [choice[0] for choice in RecurringOrder.FREQUENCY_CHOICES]
-        if frequency not in valid_frequencies:
-            messages.error(request, 'Invalid frequency selected.')
-            return redirect('setup_recurring_order')
-
-        try:
-            next_order_date = date.fromisoformat(next_order_date)
-        except ValueError:
-            messages.error(request, 'Invalid date selected.')
-            return redirect('setup_recurring_order')
-
-        if next_order_date < date.today() + timedelta(days=2):
-            messages.error(request, 'First delivery must be at least 48 hours from now.')
-            return redirect('setup_recurring_order')
-
-        recurring_order = RecurringOrder.objects.create(
-            customer=customer_profile,
-            frequency=frequency,
-            delivery_address=delivery_address,
-            next_order_date=next_order_date,
-        )
-
-        for item in basket_items:
-            RecurringOrderItem.objects.create(
-                recurring_order=recurring_order,
-                product=item.product,
-                quantity=item.quantity,
-            )
-
-        messages.success(
-            request,
-            f'Recurring {frequency.lower()} order set up successfully!'
-        )
-        return redirect('manage_recurring_orders')
-
-    return render(
-        request,
-        'marketplace/setup_recurring_order.html',
-        {
-            'basket_items': basket_items,
-            'frequency_choices': RecurringOrder.FREQUENCY_CHOICES,
-            'delivery_address': customer_profile.address,
-            'min_date': (date.today() + timedelta(days=2)).isoformat(),
-        }
-    )
+    return redirect('view_basket')
 
 
 # MANAGE RECURRING ORDERS VIEW - DISPLAYS ALL RECURRING ORDERS FOR THE CUSTOMER
@@ -1555,15 +1727,19 @@ def add_recipe(request):
     if producer_profile is None:
         return redirect('home')
 
-    producer_recipes = Recipe.objects.filter(producer=producer_profile).order_by('-created_at')
+    producer_recipes = Recipe.objects.filter(producer=producer_profile).prefetch_related('images').order_by('-created_at')
 
     if request.method == 'POST':
-        form = RecipeForm(producer=producer_profile, data=request.POST)
+        form = RecipeForm(producer=producer_profile, data=request.POST, files=request.FILES)
         if form.is_valid():
             recipe = form.save(commit=False)
             recipe.producer = producer_profile
             recipe.save()
             form.save_m2m()
+
+            for uploaded_image in form.cleaned_data.get('images', []):
+                RecipeImage.objects.create(recipe=recipe, image=uploaded_image)
+
             messages.success(request, f'Recipe "{recipe.title}" added successfully.')
             return redirect('add_recipe')
     else:
@@ -1589,9 +1765,13 @@ def edit_recipe(request, recipe_id):
     recipe = get_object_or_404(Recipe, id=recipe_id, producer=producer_profile)
 
     if request.method == 'POST':
-        form = RecipeForm(producer=producer_profile, data=request.POST, instance=recipe)
+        form = RecipeForm(producer=producer_profile, data=request.POST, files=request.FILES, instance=recipe)
         if form.is_valid():
             form.save()
+
+            for uploaded_image in form.cleaned_data.get('images', []):
+                RecipeImage.objects.create(recipe=recipe, image=uploaded_image)
+
             messages.success(request, f'Recipe "{recipe.title}" updated successfully.')
             return redirect('add_recipe')
     else:
@@ -1627,7 +1807,7 @@ def delete_recipe(request, recipe_id):
 @login_required
 def recipe_list(request):
     season_input = request.GET.get('season', '').strip()
-    recipes = Recipe.objects.select_related('producer').order_by('-created_at')
+    recipes = Recipe.objects.select_related('producer').prefetch_related('images').order_by('-created_at')
 
     valid_seasons = {choice[0] for choice in Recipe.SEASON_CHOICES}
     if season_input in valid_seasons:
@@ -1647,7 +1827,7 @@ def recipe_list(request):
 # CUSTOMER - VIEW SINGLE RECIPE
 @login_required
 def recipe_detail(request, recipe_id):
-    recipe = get_object_or_404(Recipe, id=recipe_id)
+    recipe = get_object_or_404(Recipe.objects.prefetch_related('images'), id=recipe_id)
     linked_products = recipe.linked_products.all()
 
     return render(
