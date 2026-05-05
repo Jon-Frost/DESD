@@ -16,6 +16,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from django.http import HttpResponse
 from datetime import date, timedelta
+from .utils import calculate_food_miles
 
 try:
     import stripe
@@ -585,11 +586,30 @@ def customer_market(request):
             )
         ]
 
+    products_with_miles = []
+    miles_cache = {}
+
+    for product in products:
+        producer_postcode = product.producer.postcode
+        cache_key = (customer_profile.postcode, producer_postcode)
+
+        if cache_key not in miles_cache:
+            miles_cache[cache_key] = calculate_food_miles(
+                customer_profile.postcode,
+                producer_postcode
+            )
+
+        products_with_miles.append({
+            'product': product,
+            'food_miles': miles_cache[cache_key],
+        })
+
     return render(
         request,
         'marketplace/customer_market.html',
         {
             'products': products,
+            'products_with_miles': products_with_miles,
             'category_choices': Product.CATEGORY_CHOICES,
             'allergen_choices': Product.ALLERGEN_CHOICES,
             'season_choices': Product.SEASON_CHOICES,
@@ -693,6 +713,33 @@ def add_to_basket(request, product_id):
 
     return redirect('customer_market')
 
+def _build_basket_food_miles_context(customer_profile, basket_items):
+    basket_with_miles = []
+    total_food_miles = 0
+    miles_cache = {}
+
+    for item in basket_items:
+        producer_postcode = item.product.producer.postcode
+        cache_key = (customer_profile.postcode, producer_postcode)
+
+        if cache_key not in miles_cache:
+            miles_cache[cache_key] = calculate_food_miles(
+                customer_profile.postcode,
+                producer_postcode
+            )
+
+        food_miles = miles_cache[cache_key]
+
+        basket_with_miles.append({
+            'item': item,
+            'food_miles': food_miles,
+        })
+
+        if food_miles is not None:
+            total_food_miles += food_miles
+
+    return basket_with_miles, round(total_food_miles, 1)
+
 
 # VIEW BASKET VIEW - DISPLAYS ALL ITEMS IN THE CUSTOMER'S BASKET AND THE CHECKOUT FORM
 @login_required
@@ -703,10 +750,14 @@ def view_basket(request):
         return redirect('home')
 
     # FETCH ALL BASKET ITEMS FOR THIS CUSTOMER WITH THEIR RELATED PRODUCT DATA
-    basket_items = BasketItem.objects.filter(customer=customer_profile).select_related('product')
+    basket_items = BasketItem.objects.filter(customer=customer_profile).select_related('product__producer')
 
     # CALCULATE THE GRAND TOTAL ACROSS ALL BASKET ITEMS
     total = sum(item.get_subtotal() for item in basket_items)
+    basket_with_miles, total_food_miles = _build_basket_food_miles_context(
+    customer_profile,
+    basket_items
+)
 
     # CHECK IF A RECURRING ORDER SETUP IS IN PROGRESS
     recurring_order_setup = request.session.get('recurring_order_data', None)
@@ -730,6 +781,8 @@ def view_basket(request):
             'form': form,
             'recurring_order_setup': recurring_order_setup,
             'customer_address': customer_profile.address,
+            'basket_with_miles': basket_with_miles,
+            'total_food_miles': total_food_miles,
         }
     )
 
@@ -840,20 +893,30 @@ def checkout(request):
 
         else:
             # FORM IS INVALID - RE-RENDER THE BASKET PAGE WITH ERRORS
-            basket_items_list = BasketItem.objects.filter(customer=customer_profile).select_related('product')
-            total = sum(item.get_subtotal() for item in basket_items_list)
-            return render(
+                        basket_items_list = BasketItem.objects.filter(
+                            customer=customer_profile
+                        ).select_related('product__producer')
+
+                        total = sum(item.get_subtotal() for item in basket_items_list)
+
+                        basket_with_miles, total_food_miles = _build_basket_food_miles_context(
+                        customer_profile,
+                        basket_items_list
+                        )
+
+                        return render(
                 request,
                 'marketplace/basket.html',
                 {
                     'basket_items': basket_items_list,
+                    'basket_with_miles': basket_with_miles,
+                    'total_food_miles': total_food_miles,
                     'total': total,
                     'form': form,
                     'recurring_order_setup': request.session.get('recurring_order_data', None),
                     'customer_address': customer_profile.address,
                 }
             )
-
     return redirect('view_basket')
 
 
@@ -993,6 +1056,7 @@ def submit_product_review(request, order_item_id):
         # READ AND VALIDATE RATING INPUT
         rating_raw = request.POST.get('rating', '').strip()
         comment = request.POST.get('comment', '').strip()
+        is_anonymous = request.POST.get('is_anonymous') == 'on'
 
         try:
             rating = int(rating_raw)
@@ -1011,6 +1075,7 @@ def submit_product_review(request, order_item_id):
                 'product': order_item.product,
                 'rating': rating,
                 'comment': comment,
+                'is_anonymous': is_anonymous,
             },
         )
 
@@ -1022,6 +1087,7 @@ def submit_product_review(request, order_item_id):
         review.product = order_item.product
         review.rating = rating
         review.comment = comment
+        review.is_anonymous = is_anonymous
         review.save()
 
         # CREATE A PRODUCER NOTIFICATION SO REVIEWS APPEAR IN THE NOTIFICATIONS PAGE

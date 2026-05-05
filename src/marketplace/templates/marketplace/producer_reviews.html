@@ -17,7 +17,12 @@
                     </div>
 
                     <p class="producer-review-meta">
-                        <strong>Customer:</strong> {{ review.customer.name }}
+                        <strong>Customer:</strong>
+                        {% if review.is_anonymous %}
+                            Anonymous customer
+                        {% else %}
+                            {{ review.customer.name }}
+                        {% endif %}
                     </p>
                     <p class="producer-review-meta">
                         <strong>Order #:</strong> {{ review.order_item.order.id }}
