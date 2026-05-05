@@ -1,17 +1,37 @@
 {% extends 'marketplace/base.html' %}
 {% block content %}
-<h2>My Order History</h2>
+<div class="orders-page">
+    <div class="orders-page-header">
+        <h2>My Orders</h2>
+        <p>Track your past purchases, reorder in one click, and leave feedback once an order has been delivered.</p>
+    </div>
+
 {% if orders %}
+    <div class="orders-list">
     {% for order in orders %}
-    <div class="order-card">
-        <div class="order-header">
-            <span><strong>Order #{{ order.id }}</strong></span>
-            <span>Placed: {{ order.created_at|date:"d M Y" }}</span>
-            <span>Delivery: {{ order.preferred_delivery_date|date:"d M Y" }}</span>
-            <span>Status: <strong>{{ order.get_status_display }}</strong></span>
-            <span>Total: <strong>£{{ order.total_price }}</strong></span>
+    <article class="order-history-card">
+        <div class="order-history-top">
+            <h3>Order #{{ order.id }}</h3>
+            <div class="order-history-status-pill">{{ order.get_status_display }}</div>
         </div>
-        <table>
+
+        <dl class="order-history-meta-list">
+            <div class="order-history-meta-row">
+                <dt>Placed</dt>
+                <dd>{{ order.created_at|date:"d M Y" }}</dd>
+            </div>
+            <div class="order-history-meta-row">
+                <dt>Delivery Date</dt>
+                <dd>{{ order.preferred_delivery_date|date:"d M Y" }}</dd>
+            </div>
+            <div class="order-history-meta-row">
+                <dt>Total</dt>
+                <dd>£{{ order.total_price }}</dd>
+            </div>
+        </dl>
+
+        <h4 class="order-history-section-title">Items</h4>
+        <table class="order-history-table">
             <thead>
                 <tr>
                     <th>Product</th>
@@ -71,18 +91,23 @@
                 {% endfor %}
             </tbody>
         </table>
-        <div class="order-footer">
-            <p>Delivered to: {{ order.delivery_address }}</p>
-            <p>Card ending: **** {{ order.card_number_last4 }}</p>
-            <form method="post" action="{% url 'reorder' order.id %}">
+
+        <div class="order-history-footer">
+            <p><strong>Delivered to:</strong> {{ order.delivery_address }}</p>
+            <p><strong>Card ending:</strong> **** {{ order.card_number_last4 }}</p>
+            <form method="post" action="{% url 'reorder' order.id %}" class="order-history-actions">
                 {% csrf_token %}
-                <button type="submit">Reorder</button>
+                <button type="submit" class="order-history-reorder-btn">Reorder</button>
+                <a href="{% url 'download_receipt' order.id %}" class="nav-link">Download Receipt</a>
             </form>
-            <a href="{% url 'download_receipt' order.id %}" class="nav-link">Download Receipt</a>
         </div>
-    </div>
+    </article>
     {% endfor %}
+    </div>
 {% else %}
-    <p>You have no past orders yet. <a href="{% url 'customer_market' %}">Start shopping</a></p>
+    <div class="orders-empty-state">
+        <p>You have no past orders yet. <a href="{% url 'customer_market' %}">Start shopping</a>.</p>
+    </div>
 {% endif %}
+</div>
 {% endblock %}
