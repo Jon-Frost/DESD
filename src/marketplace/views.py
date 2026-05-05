@@ -16,6 +16,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from django.http import HttpResponse
 from datetime import date, timedelta
+from .utils import calculate_food_miles
 
 try:
     import stripe
@@ -585,11 +586,21 @@ def customer_market(request):
             )
         ]
 
+    customer_postcode = customer_profile.postcode
+    products_with_miles = [
+        {
+            'product': product,
+            'food_miles': calculate_food_miles(customer_postcode, product.producer.postcode),
+        }
+        for product in products
+    ]
+
     return render(
         request,
         'marketplace/customer_market.html',
         {
             'products': products,
+            'products_with_miles': products_with_miles,
             'category_choices': Product.CATEGORY_CHOICES,
             'allergen_choices': Product.ALLERGEN_CHOICES,
             'season_choices': Product.SEASON_CHOICES,
