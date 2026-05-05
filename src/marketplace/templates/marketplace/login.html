@@ -9,7 +9,13 @@
     <form method="post" class="auth-form">
         {% csrf_token %}
         
-        {% if form.errors %}
+        {% if form.non_field_errors %}
+            {% for error in form.non_field_errors %}
+                <p class="auth-error-msg">
+                    {{ error }}
+                </p>
+            {% endfor %}
+        {% elif form.errors %}
             <p class="auth-error-msg">
                 Your username and password didn't match. Please try again.
             </p>

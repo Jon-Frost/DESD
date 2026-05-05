@@ -5,7 +5,9 @@ from datetime import date, timedelta
 from decimal import Decimal
 from marketplace.models import (
     Producer, Customer, Product, Recipe,
-    CustomerOrder, OrderItem, BasketItem
+    CustomerOrder, OrderItem, BasketItem,
+    RecurringOrder, RecurringOrderItem, RecurringOrderUpcomingItem,
+    Notification, ProductReview
 )
 
 
@@ -231,7 +233,7 @@ class Command(BaseCommand):
 
         for r in recipes_data:
             if not Recipe.objects.filter(title=r['title'], producer=r['producer']).exists():
-                Recipe.objects.create(
+                recipe = Recipe.objects.create(
                     producer=r['producer'],
                     title=r['title'],
                     description=r['description'],
@@ -239,8 +241,16 @@ class Command(BaseCommand):
                     instructions=r['instructions'],
                     seasonal_tag=r['seasonal_tag'],
                 )
+                if producer.products.exists():
+                    recipe.linked_products.set(list(producer.products.all()[:2]))
                 self.stdout.write(f'Created recipe: {r["title"]}')
             else:
+                recipe = Recipe.objects.get(title=r['title'], producer=r['producer'])
+                if not recipe.linked_products.exists():
+                    if r['producer'] == producer:
+                        recipe.linked_products.set(list(producer.products.all()[:2]))
+                    else:
+                        recipe.linked_products.set(list(producer2.products.all()[:2]))
                 self.stdout.write(f'Recipe already exists: {r["title"]}')
 
         # CREATE PAST ORDERS FOR CUSTOMER
@@ -324,6 +334,114 @@ class Command(BaseCommand):
             self.stdout.write('Created upcoming order #3 (CONFIRMED)')
         else:
             self.stdout.write('Orders already exist for cust1')
+
+        # FETCH ORDERS/ITEMS FOR FOLLOW-UP SEED DATA
+        delivered_order = CustomerOrder.objects.filter(
+            customer=customer,
+            status='DELIVERED',
+        ).order_by('preferred_delivery_date').first()
+
+        # CREATE BASKET ITEMS
+        if not BasketItem.objects.filter(customer=customer).exists() and len(created_products) >= 2:
+            BasketItem.objects.create(customer=customer, product=created_products[0], quantity=1)
+            BasketItem.objects.create(customer=customer, product=created_products[4], quantity=2)
+            self.stdout.write('Created basket items for cust1')
+        else:
+            self.stdout.write('Basket items already exist for cust1')
+
+        # CREATE RECURRING ORDER + TEMPLATE ITEMS
+        recurring_order = RecurringOrder.objects.filter(customer=customer).first()
+        if recurring_order is None:
+            recurring_order = RecurringOrder.objects.create(
+                customer=customer,
+                frequency='WEEKLY',
+                recurrence_day=0,
+                delivery_week_offset=0,
+                delivery_day=2,
+                delivery_address='45 Park Street, Bristol, BS1 5JG',
+                next_order_date=date.today() + timedelta(days=7),
+                status='ACTIVE',
+            )
+
+            if len(created_products) >= 2:
+                RecurringOrderItem.objects.create(
+                    recurring_order=recurring_order,
+                    product=created_products[0],
+                    quantity=2,
+                )
+                RecurringOrderItem.objects.create(
+                    recurring_order=recurring_order,
+                    product=created_products[1],
+                    quantity=1,
+                )
+
+                RecurringOrderUpcomingItem.objects.create(
+                    recurring_order=recurring_order,
+                    product=created_products[0],
+                    scheduled_for=recurring_order.next_order_date,
+                    quantity=3,
+                )
+
+            self.stdout.write('Created recurring order template and next-order override')
+        else:
+            if not recurring_order.items.exists() and len(created_products) >= 2:
+                RecurringOrderItem.objects.create(
+                    recurring_order=recurring_order,
+                    product=created_products[0],
+                    quantity=2,
+                )
+                RecurringOrderItem.objects.create(
+                    recurring_order=recurring_order,
+                    product=created_products[1],
+                    quantity=1,
+                )
+
+            if not recurring_order.upcoming_items.filter(scheduled_for=recurring_order.next_order_date).exists() and len(created_products) >= 1:
+                RecurringOrderUpcomingItem.objects.create(
+                    recurring_order=recurring_order,
+                    product=created_products[0],
+                    scheduled_for=recurring_order.next_order_date,
+                    quantity=3,
+                )
+
+            self.stdout.write('Recurring order already exists for cust1')
+
+        # CREATE SAMPLE REVIEW
+        if delivered_order:
+            review_target_item = delivered_order.items.first()
+            if review_target_item and not ProductReview.objects.filter(order_item=review_target_item).exists():
+                ProductReview.objects.create(
+                    customer=customer,
+                    product=review_target_item.product,
+                    order_item=review_target_item,
+                    rating=5,
+                    comment='Excellent quality produce and very fresh.',
+                    is_anonymous=False,
+                )
+                self.stdout.write('Created sample product review')
+            else:
+                self.stdout.write('Sample product review already exists')
+
+        # CREATE SAMPLE NOTIFICATIONS
+        if not Notification.objects.filter(user=customer.user).exists():
+            Notification.objects.create(
+                user=customer.user,
+                message='Welcome to BRFN! Your account has been seeded with sample data.',
+                is_read=False,
+            )
+            self.stdout.write('Created customer notification')
+        else:
+            self.stdout.write('Customer notifications already exist')
+
+        if not Notification.objects.filter(user=producer.user).exists():
+            Notification.objects.create(
+                user=producer.user,
+                message='You have a new sample order waiting for fulfilment.',
+                is_read=False,
+            )
+            self.stdout.write('Created producer notification')
+        else:
+            self.stdout.write('Producer notifications already exist')
 
         self.stdout.write(self.style.SUCCESS('\nDone! Test accounts:'))
         self.stdout.write('  Admin:    admin1 / admin123')
