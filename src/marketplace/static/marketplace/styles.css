@@ -1196,6 +1196,180 @@ body {
     background: #1b5e20;
 }
 
+.review-pending-msg {
+    color: #5f6d60;
+    font-size: 0.86rem;
+    font-style: italic;
+}
+
+/* --- CUSTOMER MY ORDERS PAGE --- */
+
+.orders-page {
+    max-width: 980px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.orders-page-header,
+.orders-empty-state,
+.order-history-card {
+    background: #ffffff;
+    border: 1px solid #c8e6c9;
+    border-radius: 10px;
+    box-shadow: 0 8px 20px rgba(34, 93, 39, 0.08);
+}
+
+.orders-page-header,
+.orders-empty-state {
+    padding: 16px 18px;
+}
+
+.orders-page-header h2 {
+    margin: 0 0 6px;
+    color: #1b5e20;
+}
+
+.orders-page-header p {
+    margin: 0;
+    color: #4b5563;
+}
+
+.orders-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.order-history-card {
+    padding: 18px;
+}
+
+.order-history-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.order-history-top h3 {
+    margin: 0;
+    color: #1b5e20;
+}
+
+.order-history-status-pill {
+    background: #edf7ee;
+    border: 1px solid #b7dcb9;
+    color: #1b5e20;
+    border-radius: 999px;
+    padding: 5px 11px;
+    font-size: 0.82rem;
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+.order-history-meta-list {
+    margin: 0 0 16px;
+    padding: 12px;
+    border: 1px solid #dcecdc;
+    border-radius: 8px;
+    background: #f8fcf8;
+}
+
+.order-history-meta-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 0;
+    border-bottom: 1px solid #e6efe6;
+}
+
+.order-history-meta-row:last-child {
+    border-bottom: none;
+}
+
+.order-history-meta-row dt {
+    color: #5f6d60;
+    font-size: 0.83rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: bold;
+}
+
+.order-history-meta-row dd {
+    margin: 0;
+    color: #1f2937;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.order-history-section-title {
+    margin: 16px 0 10px;
+    color: #1b5e20;
+    border-bottom: 1px solid #dcecdc;
+    padding-bottom: 6px;
+}
+
+.order-history-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 14px;
+}
+
+.order-history-table th,
+.order-history-table td {
+    padding: 10px;
+    border-bottom: 1px solid #e8ece8;
+    text-align: left;
+    vertical-align: top;
+}
+
+.order-history-table th {
+    background: #f2faf3;
+    color: #1b5e20;
+    font-weight: 700;
+}
+
+.order-history-footer {
+    margin-top: 10px;
+    padding-top: 12px;
+    border-top: 1px solid #e2ebe2;
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+}
+
+.order-history-footer p {
+    margin: 0;
+    color: #364152;
+}
+
+.order-history-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.order-history-reorder-btn {
+    background: #2e7d32;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    padding: 9px 14px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.order-history-reorder-btn:hover,
+.order-history-reorder-btn:focus {
+    background: #1b5e20;
+}
+
 /* --- PRODUCER REVIEWS PAGE STYLES --- */
 
 .producer-reviews-page {
@@ -1937,6 +2111,20 @@ a.admin-quick-link:hover {
 }
 
 @media (max-width: 768px) {
+    .order-history-top,
+    .order-history-footer {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .order-history-actions {
+        width: 100%;
+    }
+
+    .order-history-table {
+        font-size: 0.9rem;
+    }
+
     .recurring-order-header,
     .recurring-order-footer {
         flex-direction: column;
