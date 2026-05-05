@@ -55,7 +55,7 @@
                             <!-- FOOD MILES PER PRODUCT - TC-013 -->
                             <td>
                                 {% if entry.food_miles is not None %}
-                                    🌍 {{ entry.food_miles }} miles
+                                    {{ entry.food_miles }} miles
                                 {% else %}
                                     N/A
                                 {% endif %}
@@ -76,7 +76,7 @@
                         <td colspan="4"><strong>Total</strong></td>
                         <td><strong>£{{ total }}</strong></td>
                         <!-- TOTAL FOOD MILES - TC-013 -->
-                        <td><strong>🌍 {{ total_food_miles }} miles</strong></td>
+                        <td><strong>{{ total_food_miles }} miles</strong></td>
                         <td></td>
                     </tr>
                 </tfoot>
