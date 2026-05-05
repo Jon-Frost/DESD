@@ -1,26 +1,38 @@
 import requests
 import math
+from django.conf import settings
 
 
 def get_coordinates(postcode):
-    postcode = postcode.replace(' ', '').upper()
-    
-    try:
-        response = requests.get(
-            f'https://api.postcodes.io/postcodes/{postcode}',
-            timeout=5
-        )
-        data = response.json()
-        
-        if response.status_code == 200 and data.get('result'):
-            return {
-                'lat': data['result']['latitude'],
-                'lng': data['result']['longitude']
-            }
-    except Exception:
+    if not postcode:
         return None
-    
-    return None
+
+    postcode = postcode.replace(' ', '').upper()
+
+    try:
+        base_url = getattr(settings, 'POSTCODE_API_BASE_URL', 'https://api.postcodes.io').rstrip('/')
+        timeout = getattr(settings, 'POSTCODE_API_TIMEOUT', 5)
+
+        response = requests.get(
+            f'{base_url}/postcodes/{postcode}',
+            timeout=timeout
+        )
+
+        if response.status_code != 200:
+            return None
+
+        data = response.json()
+
+        if not data.get('result'):
+            return None
+
+        return {
+            'lat': data['result']['latitude'],
+            'lng': data['result']['longitude'],
+        }
+
+    except (requests.RequestException, KeyError, TypeError, ValueError):
+        return None
 
 
 def haversine_distance(coord1, coord2):

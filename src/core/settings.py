@@ -28,6 +28,14 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-sm7#3+=#s9uolxy0!-vkk
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+POSTCODE_API_BASE_URL = os.environ.get(
+    'POSTCODE_API_BASE_URL',
+    'https://api.postcodes.io'
+)
+
+POSTCODE_API_TIMEOUT = int(os.environ.get('POSTCODE_API_TIMEOUT', 5))
+
+
 ALLOWED_HOSTS = []
 
 

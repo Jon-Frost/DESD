@@ -586,14 +586,23 @@ def customer_market(request):
             )
         ]
 
-    customer_postcode = customer_profile.postcode
-    products_with_miles = [
-        {
+    products_with_miles = []
+    miles_cache = {}
+
+    for product in products:
+        producer_postcode = product.producer.postcode
+        cache_key = (customer_profile.postcode, producer_postcode)
+
+        if cache_key not in miles_cache:
+            miles_cache[cache_key] = calculate_food_miles(
+                customer_profile.postcode,
+                producer_postcode
+            )
+
+        products_with_miles.append({
             'product': product,
-            'food_miles': calculate_food_miles(customer_postcode, product.producer.postcode),
-        }
-        for product in products
-    ]
+            'food_miles': miles_cache[cache_key],
+        })
 
     return render(
         request,
@@ -703,7 +712,6 @@ def add_to_basket(request, product_id):
         messages.success(request, f'Added {quantity}x "{product.name}" to your basket.')
 
     return redirect('customer_market')
-
 
 def _build_basket_food_miles_context(customer_profile, basket_items):
     basket_with_miles = []
@@ -904,7 +912,6 @@ def checkout(request):
                     'customer_address': customer_profile.address,
                 }
             )
-
     return redirect('view_basket')
 
 
@@ -1044,6 +1051,7 @@ def submit_product_review(request, order_item_id):
         # READ AND VALIDATE RATING INPUT
         rating_raw = request.POST.get('rating', '').strip()
         comment = request.POST.get('comment', '').strip()
+        is_anonymous = request.POST.get('is_anonymous') == 'on'
 
         try:
             rating = int(rating_raw)
@@ -1062,6 +1070,7 @@ def submit_product_review(request, order_item_id):
                 'product': order_item.product,
                 'rating': rating,
                 'comment': comment,
+                'is_anonymous': is_anonymous,
             },
         )
 
@@ -1073,6 +1082,7 @@ def submit_product_review(request, order_item_id):
         review.product = order_item.product
         review.rating = rating
         review.comment = comment
+        review.is_anonymous = is_anonymous
         review.save()
 
         # CREATE A PRODUCER NOTIFICATION SO REVIEWS APPEAR IN THE NOTIFICATIONS PAGE
