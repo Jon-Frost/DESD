@@ -787,6 +787,42 @@ def view_basket(request):
     )
 
 
+# UPDATE BASKET QUANTITY VIEW - UPDATES THE QUANTITY FOR A SINGLE BASKET ITEM
+@login_required
+def update_basket_quantity(request, item_id):
+    # VERIFY THE LOGGED-IN USER IS A CUSTOMER
+    customer_profile = _get_logged_in_customer(request.user)
+    if customer_profile is None:
+        return redirect('home')
+
+    # FETCH THE BASKET ITEM, ENSURING IT BELONGS TO THIS CUSTOMER
+    basket_item = get_object_or_404(BasketItem, id=item_id, customer=customer_profile)
+
+    if request.method == 'POST':
+        try:
+            quantity = int(request.POST.get('quantity', basket_item.quantity))
+        except (TypeError, ValueError):
+            messages.error(request, 'Enter a valid quantity.')
+            return redirect('view_basket')
+
+        if quantity < 1:
+            messages.error(request, 'Quantity must be at least 1.')
+            return redirect('view_basket')
+
+        if quantity > basket_item.product.stock_quantity:
+            messages.error(
+                request,
+                f'Only {basket_item.product.stock_quantity} unit(s) of "{basket_item.product.name}" currently in stock.'
+            )
+            return redirect('view_basket')
+
+        basket_item.quantity = quantity
+        basket_item.save(update_fields=['quantity'])
+        messages.success(request, f'Updated "{basket_item.product.name}" quantity to {quantity}.')
+
+    return redirect('view_basket')
+
+
 # REMOVE FROM BASKET VIEW - DELETES A SINGLE ITEM FROM THE CUSTOMER'S BASKET
 @login_required
 def remove_from_basket(request, item_id):

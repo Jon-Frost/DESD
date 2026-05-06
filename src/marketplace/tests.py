@@ -210,6 +210,72 @@ class CustomerMarketViewTests(TestCase):
         self.assertRedirects(response, reverse('home'))
 
 
+class BasketViewTests(TestCase):
+    def setUp(self):
+        self.customer_user = User.objects.create_user(username='basket_customer', password='testpass123')
+        self.customer = Customer.objects.create(
+            user=self.customer_user,
+            name='Basket Buyer',
+            email='basket@example.com',
+            address='14 Basket Street',
+            postcode='BS12AB'
+        )
+
+        self.producer_user = User.objects.create_user(username='basket_producer', password='testpass123')
+        self.producer = Producer.objects.create(
+            user=self.producer_user,
+            business_name='Basket Farm',
+            contact_name='Pat Producer',
+            email='producer@example.com',
+            business_address='1 Produce Way',
+            postcode='BS34CD'
+        )
+
+        self.product = Product.objects.create(
+            producer=self.producer,
+            name='Potatoes',
+            category='VEG',
+            description='Fresh potatoes',
+            price='2.50',
+            unit='per kg',
+            stock_quantity=10,
+            is_organic=True
+        )
+        self.basket_item = BasketItem.objects.create(
+            customer=self.customer,
+            product=self.product,
+            quantity=2,
+        )
+
+    def test_customer_can_update_basket_quantity(self):
+        self.client.login(username='basket_customer', password='testpass123')
+
+        response = self.client.post(
+            reverse('update_basket', args=[self.basket_item.id]),
+            {'quantity': '5'},
+            follow=True,
+        )
+
+        self.basket_item.refresh_from_db()
+        self.assertRedirects(response, reverse('view_basket'))
+        self.assertEqual(self.basket_item.quantity, 5)
+        self.assertContains(response, 'Updated &quot;Potatoes&quot; quantity to 5.')
+
+    def test_basket_quantity_cannot_exceed_stock(self):
+        self.client.login(username='basket_customer', password='testpass123')
+
+        response = self.client.post(
+            reverse('update_basket', args=[self.basket_item.id]),
+            {'quantity': '11'},
+            follow=True,
+        )
+
+        self.basket_item.refresh_from_db()
+        self.assertRedirects(response, reverse('view_basket'))
+        self.assertEqual(self.basket_item.quantity, 2)
+        self.assertContains(response, 'Only 10 unit(s) of &quot;Potatoes&quot; currently in stock.')
+
+
 class ProducerBioViewTests(TestCase):
     def setUp(self):
         self.producer_user = User.objects.create_user(username='bio_producer', password='testpass123')

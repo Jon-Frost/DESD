@@ -96,6 +96,7 @@ urlpatterns = [
     path('products/<int:product_id>/delete/', views.delete_product, name='delete_product'),
     path('basket/add/<int:product_id>/', views.add_to_basket, name='add_to_basket'),
     path('basket/', views.view_basket, name='view_basket'),
+    path('basket/update/<int:item_id>/', views.update_basket_quantity, name='update_basket'),
     path('basket/remove/<int:item_id>/', views.remove_from_basket, name='remove_from_basket'),
     path('basket/checkout/', views.checkout, name='checkout'),
     path('orders/checkout/stripe/success/', views.stripe_checkout_success, name='stripe_checkout_success'),

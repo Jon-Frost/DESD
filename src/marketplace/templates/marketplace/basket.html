@@ -49,7 +49,22 @@
                                     £{{ entry.item.product.price }} / {{ entry.item.product.unit }}
                                 {% endif %}
                             </td>
-                            <td>{{ entry.item.quantity }}</td>
+                            <td>
+                                <form method="post" action="{% url 'update_basket' entry.item.id %}" class="basket-quantity-form">
+                                    {% csrf_token %}
+                                    <label class="basket-quantity-label" for="basket-quantity-{{ entry.item.id }}">Quantity</label>
+                                    <input
+                                        id="basket-quantity-{{ entry.item.id }}"
+                                        class="basket-quantity-input"
+                                        type="number"
+                                        name="quantity"
+                                        min="1"
+                                        max="{{ entry.item.product.stock_quantity }}"
+                                        value="{{ entry.item.quantity }}"
+                                    >
+                                    <button class="basket-update-btn" type="submit">Update</button>
+                                </form>
+                            </td>
                             <!-- CALCULATE AND DISPLAY THE LINE TOTAL FOR THIS ITEM -->
                             <td>£{{ entry.item.get_subtotal }}</td>
                             <!-- FOOD MILES PER PRODUCT - TC-013 -->
