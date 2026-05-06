@@ -25,7 +25,7 @@ The Bristol Regional Food Network (BRFN) is in need of an online marketplace to 
 
 1. Start the containers and build the environment
 
-Before first run, copy `.env.example` to `.env` and keep Cloudinary/Stripe keys blank for local tutor marking:
+Before first run, copy `.env.example` to `.env` and keep Cloudinary/Stripe keys blank as the system can run without the api keys:
 
 Windows (PowerShell):
 
@@ -41,9 +41,6 @@ docker compose exec web python src/manage.py seed_data
 
 ## Submission Setup (Seeded Data)
 
-To allow for a complete evaluation of the project, you can load a known dataset with one command after migrations:
-
-docker compose exec web python src/manage.py seed_data
 
 If you want a completely fresh seeded database:
 
@@ -56,10 +53,9 @@ This command recreates the seed users and their linked sample marketplace data (
 
 ## API Keys
 
-
 - Cloudinary keys are optional. If blank, the app now uses local media storage and seeded images still work.
 - Stripe keys are optional. If blank, checkout falls back to the local non-Stripe flow.
-- For marking, tutors only need `.env` from `.env.example` and the standard seed commands.
+- For environment variables you will need `.env` from `.env.example` and the standard seed commands.
 
 Demo accounts created by seed command:
 
