@@ -230,6 +230,17 @@ class CheckoutForm(forms.Form):
         label='Recurring Delivery Day',
     )
 
+    # OPTIONAL DELIVERY INSTRUCTIONS FOR THE PRODUCER
+    delivery_instructions = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={
+            'class': 'auth-field',
+            'rows': 3,
+            'placeholder': 'e.g. Leave at the door, ring doorbell, call on arrival...',
+        }),
+        label='Delivery Instructions',
+    )
+
     # CARD HOLDER NAME AS IT APPEARS ON THE CARD
     card_holder_name = forms.CharField(
         max_length=100,

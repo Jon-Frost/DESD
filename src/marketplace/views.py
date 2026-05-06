@@ -128,6 +128,7 @@ def _create_customer_order_from_basket(customer_profile, basket_items, form_clea
         card_holder_name=form_cleaned_data.get('card_holder_name') or 'Stripe Checkout',
         card_number_last4=(form_cleaned_data.get('card_number', '')[-4:] or '4242'),
         total_price=total,
+        delivery_instructions=form_cleaned_data.get('delivery_instructions', ''),
     )
 
     for item in basket_items:
@@ -942,6 +943,7 @@ def checkout(request):
                     'preferred_delivery_date': form.cleaned_data['preferred_delivery_date'].isoformat(),
                     'card_holder_name': form.cleaned_data['card_holder_name'],
                     'card_number_last4': form.cleaned_data['card_number'][-4:],
+                    'delivery_instructions': form.cleaned_data.get('delivery_instructions', ''),
                     'customer_id': customer_profile.id,
                 }
                 return redirect(checkout_session.url)
@@ -1026,6 +1028,7 @@ def stripe_checkout_success(request):
         'preferred_delivery_date': date.fromisoformat(pending_data['preferred_delivery_date']),
         'card_holder_name': pending_data.get('card_holder_name') or 'Stripe Checkout',
         'card_number': pending_data.get('card_number_last4') or '4242',
+        'delivery_instructions': pending_data.get('delivery_instructions', ''),
     }
 
     order = _create_customer_order_from_basket(customer_profile, basket_items, order_data)

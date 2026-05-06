@@ -73,6 +73,9 @@
                             {% if order.customer.phone_number %}
                                 <p><strong>Phone:</strong> {{ order.customer.phone_number }}</p>
                             {% endif %}
+                            {% if order.delivery_instructions %}
+                                <p><strong>Delivery Instructions:</strong> {{ order.delivery_instructions }}</p>
+                            {% endif %}
                         </div>
 
                         <form method="post" action="{% url 'update_order_status' order.id %}" class="producer-order-form">

@@ -153,6 +153,8 @@ class CustomerOrder(models.Model):
     card_number_last4 = models.CharField(max_length=4)
     # TOTAL VALUE OF THE ORDER CALCULATED AT CHECKOUT
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
+    # OPTIONAL DELIVERY INSTRUCTIONS FROM THE CUSTOMER
+    delivery_instructions = models.TextField(blank=True, default='')
 
     # ORDER STATUS CHOICES
     STATUS_CHOICES = [

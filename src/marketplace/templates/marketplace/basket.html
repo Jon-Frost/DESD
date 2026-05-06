@@ -214,6 +214,19 @@
                     </div>
                 </div>
 
+                <!-- DELIVERY INSTRUCTIONS FIELD - ALWAYS SHOWN -->
+                <div class="auth-field-group">
+                    <label class="auth-label" for="{{ form.delivery_instructions.id_for_label }}">
+                        {{ form.delivery_instructions.label }}
+                    </label>
+                    {{ form.delivery_instructions }}
+                    {% if form.delivery_instructions.errors %}
+                        {% for error in form.delivery_instructions.errors %}
+                            <p class="field-error-msg">{{ error }}</p>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+
                 {% if not stripe_enabled %}
                 <!-- CARD FIELDS ONLY SHOWN WHEN STRIPE IS NOT ACTIVE (LOCAL FALLBACK FLOW) -->
 
