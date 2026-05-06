@@ -11,7 +11,13 @@
         {% csrf_token %}
         
         {% for field in form %}
-            <div class="auth-field-group">
+            <div
+                class="auth-field-group"
+                {% if field.name == 'organisation_name' %}
+                    id="org-field"
+                    style="display:none;"
+                {% endif %}
+    >
                 <label class="auth-label">{{ field.label }}</label>
                 {{ field }}
                 {% if field.errors %}
@@ -31,4 +37,23 @@
         Already have an account? <a href="{% url 'login' %}">Login here</a>
     </p>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const accountType = document.getElementById('id_account_type');
+    const orgField = document.getElementById('org-field');
+
+    if (!accountType || !orgField) return;
+
+    function toggleOrgField() {
+        if (accountType.value === 'COMMUNITY_GROUP') {
+            orgField.style.display = 'block';
+        } else {
+            orgField.style.display = 'none';
+        }
+    }
+
+    toggleOrgField();
+    accountType.addEventListener('change', toggleOrgField);
+});
+</script>
 {% endblock %}

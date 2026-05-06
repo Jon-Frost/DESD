@@ -128,6 +128,7 @@ def _create_customer_order_from_basket(customer_profile, basket_items, form_clea
         card_holder_name=form_cleaned_data.get('card_holder_name') or 'Stripe Checkout',
         card_number_last4=(form_cleaned_data.get('card_number', '')[-4:] or '4242'),
         total_price=total,
+        special_instructions=form_cleaned_data.get('special_instructions', ''),
     )
 
     for item in basket_items:

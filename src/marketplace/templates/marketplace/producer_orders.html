@@ -42,7 +42,16 @@
                             <strong>Recurring order:</strong> This order is part of a {{ entry.recurring_order.get_frequency_display|lower }} recurring schedule.
                         </p>
                     {% endif %}
+                    {% if order.customer.account_type == 'COMMUNITY_GROUP' %}
+                        <p class="producer-order-recurring-note">
+                            <strong>Community Group Bulk Order:</strong>
+                            {{ order.customer.organisation_name }}
+                        </p>
+                    {% endif %}
 
+                    {% if order.special_instructions %}
+                        <p><strong>Special Instructions:</strong> {{ order.special_instructions }}</p>
+                    {% endif %}
                     <div class="producer-order-table-wrap">
                         <table class="producer-order-table">
                             <thead>

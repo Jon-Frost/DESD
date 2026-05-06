@@ -25,6 +25,19 @@ class Customer(models.Model):
     address = models.CharField(max_length=100)
     postcode = models.CharField(max_length=7, validators=[MinLengthValidator(5)])
 
+    ACCOUNT_TYPE_CHOICES = [
+        ('INDIVIDUAL', 'Individual'),
+        ('COMMUNITY_GROUP', 'Community Group'),
+    ]
+
+    account_type = models.CharField(
+        max_length=20,
+        choices=ACCOUNT_TYPE_CHOICES,
+        default='INDIVIDUAL'
+    )
+
+    organisation_name = models.CharField(max_length=200, blank=True)
+
     def __str__(self):
         return self.name
 
@@ -153,6 +166,7 @@ class CustomerOrder(models.Model):
     card_number_last4 = models.CharField(max_length=4)
     # TOTAL VALUE OF THE ORDER CALCULATED AT CHECKOUT
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
+    special_instructions = models.TextField(blank=True)
 
     # ORDER STATUS CHOICES
     STATUS_CHOICES = [

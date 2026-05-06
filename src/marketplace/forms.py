@@ -73,8 +73,18 @@ class CustomerSignupForm(forms.ModelForm):
     
     class Meta:
         model = Customer
-        fields = ['name', 'email', 'phone_number', 'address', 'postcode']
+        fields = ['name', 'email', 'phone_number', 'address', 'postcode', 'account_type', 'organisation_name']
 
+    def clean(self):
+        cleaned_data = super().clean()
+        account_type = cleaned_data.get('account_type')
+        organisation_name = cleaned_data.get('organisation_name')
+
+        if account_type == 'COMMUNITY_GROUP' and not organisation_name:
+            self.add_error('organisation_name', 'Organisation name is required for community groups.')
+
+        return cleaned_data
+    
     # ENFORCE AUTH_PASSWORD_VALIDATORS BEFORE THE USER IS CREATED
     def clean_password(self):
         password = self.cleaned_data.get('password')
@@ -95,6 +105,12 @@ class CustomerSignupForm(forms.ModelForm):
         if commit:
             customer.save()
         return customer
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Hide organisation name by default
+        self.fields['organisation_name'].required = False
+        
 #edit account
 class ChangeEmailForm(forms.Form):
     email = forms.EmailField(label="New Email")
@@ -228,6 +244,15 @@ class CheckoutForm(forms.Form):
         initial='0:2',
         widget=forms.Select(attrs={'class': 'auth-field'}),
         label='Recurring Delivery Day',
+    )
+    special_instructions = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={
+            'class': 'auth-field',
+            'rows': 3,
+            'placeholder': 'Delivery instructions, contact name, timing, access notes...'
+        }),
+        label='Special Instructions'
     )
 
     # CARD HOLDER NAME AS IT APPEARS ON THE CARD
