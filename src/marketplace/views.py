@@ -510,7 +510,15 @@ def edit_product(request, product_id):
     if request.method == 'POST':
         form = ProductForm(request.POST, request.FILES, instance=product)
         if form.is_valid():
-            form.save()
+            product = form.save()
+
+            # Remove low-stock notifications once producer restocks above threshold
+            if product.stock_quantity > product.low_stock_threshold:
+                Notification.objects.filter(
+                    user=request.user,
+                    message__icontains=f'Low stock alert: {product.name}'
+                ).delete()
+
             return redirect('add_product')
     else:
         form = ProductForm(instance=product)
@@ -671,6 +679,10 @@ def producer_bio_public(request, producer_id):
         avg=Avg('reviews__rating'),
         count=Count('reviews')
     )
+    
+    producer_reviews = ProductReview.objects.filter(
+        product__producer=producer
+    ).select_related('customer', 'product').order_by('-created_at')[:5] 
 
     return render(
         request,
@@ -680,6 +692,7 @@ def producer_bio_public(request, producer_id):
             'products': products,
             'producer_avg_rating': producer_rating['avg'],
             'producer_review_count': producer_rating['count'],
+            'producer_reviews': producer_reviews,
         }
     )
 

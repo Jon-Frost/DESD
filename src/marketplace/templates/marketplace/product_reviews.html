@@ -1,0 +1,51 @@
+{% extends 'marketplace/base.html' %}
+
+{% block title %}Reviews for {{ product.name }} - Bristol Food Network{% endblock %}
+
+{% block content %}
+<div class="producer-reviews-page">
+    <h2 class="auth-title">Reviews for {{ product.name }}</h2>
+    <p class="auth-subtitle">Customer feedback from verified purchases.</p>
+
+    {% if reviews %}
+        <div class="producer-reviews-list">
+            {% for review in reviews %}
+                <article class="producer-review-card">
+                    <div class="producer-review-header">
+                        <h3 class="producer-review-product">
+                            {% if review.is_anonymous %}
+                                Anonymous customer
+                            {% else %}
+                                {{ review.customer.name }}
+                            {% endif %}
+                        </h3>
+                        <span class="producer-review-rating">{{ review.rating }}/5</span>
+                    </div>
+
+                    <p class="producer-review-meta">
+                        <strong>Date:</strong> {{ review.created_at|date:"d M Y, H:i" }}
+                    </p>
+
+                    <p class="producer-review-meta">
+                        <strong>Verified purchase:</strong> Yes
+                    </p>
+
+                    {% if review.comment %}
+                        <p class="producer-review-comment">{{ review.comment }}</p>
+                    {% else %}
+                        <p class="producer-review-comment producer-review-comment-empty">No written comment provided.</p>
+                    {% endif %}
+                </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="producer-empty-state">
+            <p>No reviews yet for this product.</p>
+        </div>
+    {% endif %}
+
+    <p class="auth-footer-text">
+        <a href="{% url 'customer_market' %}" class="nav-link">← Back to Market</a>
+    </p>
+</div>
+{% endblock %}
