@@ -276,6 +276,87 @@ class BasketViewTests(TestCase):
         self.assertContains(response, 'Only 10 unit(s) of &quot;Potatoes&quot; currently in stock.')
 
 
+class ProducerIncomingOrdersTests(TestCase):
+    def setUp(self):
+        self.producer_user = User.objects.create_user(username='incoming_producer', password='testpass123')
+        self.customer_user = User.objects.create_user(username='incoming_customer', password='testpass123')
+
+        self.producer = Producer.objects.create(
+            user=self.producer_user,
+            business_name='Incoming Farm',
+            contact_name='Iris Producer',
+            email='incoming.producer@example.com',
+            business_address='22 Farm Lane',
+            postcode='BS11AA'
+        )
+        self.customer = Customer.objects.create(
+            user=self.customer_user,
+            name='Casey Customer',
+            email='incoming.customer@example.com',
+            address='7 Buyer Road',
+            postcode='BS22BB'
+        )
+        self.product = Product.objects.create(
+            producer=self.producer,
+            name='Incoming Apples',
+            category='FRUIT',
+            description='Fresh apples',
+            price='2.10',
+            unit='per kg',
+            stock_quantity=40,
+            is_organic=True,
+        )
+
+    def test_incoming_orders_page_shows_new_one_off_order(self):
+        order = CustomerOrder.objects.create(
+            customer=self.customer,
+            delivery_address=self.customer.address,
+            preferred_delivery_date=date.today() + timedelta(days=3),
+            card_holder_name='Casey Customer',
+            card_number_last4='4242',
+            total_price='6.30',
+            status='PENDING',
+        )
+        order.items.create(product=self.product, quantity=3, unit_price='2.10')
+
+        self.client.login(username='incoming_producer', password='testpass123')
+        response = self.client.get(reverse('producer_orders'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'Order #{order.id}')
+        self.assertContains(response, 'Casey Customer')
+        self.assertContains(response, 'Incoming Apples')
+
+    def test_incoming_orders_page_shows_active_recurring_next_occurrence(self):
+        recurring_order = RecurringOrder.objects.create(
+            customer=self.customer,
+            frequency='WEEKLY',
+            recurrence_day=0,
+            delivery_week_offset=0,
+            delivery_day=2,
+            delivery_address=self.customer.address,
+            next_order_date=date.today() + timedelta(days=7),
+            status='ACTIVE',
+        )
+        recurring_order.items.create(product=self.product, quantity=2)
+        RecurringOrderUpcomingItem.objects.create(
+            recurring_order=recurring_order,
+            product=self.product,
+            scheduled_for=recurring_order.next_order_date,
+            quantity=4,
+        )
+
+        self.client.login(username='incoming_producer', password='testpass123')
+        response = self.client.get(reverse('producer_orders'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Recurring Order')
+        self.assertContains(response, recurring_order.next_order_date.strftime('%d %b %Y'))
+        self.assertContains(response, 'Incoming Apples')
+        self.assertContains(response, '<td>2</td>', html=True)
+        self.assertContains(response, '<td>4</td>', html=True)
+
+
 class ProducerBioViewTests(TestCase):
     def setUp(self):
         self.producer_user = User.objects.create_user(username='bio_producer', password='testpass123')

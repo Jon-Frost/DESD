@@ -1282,32 +1282,74 @@ def producer_orders(request):
     if producer_profile is None:
         return redirect('home')
 
-    # GET ALL ORDER ITEMS FOR THIS PRODUCER'S PRODUCTS
-    order_items = OrderItem.objects.filter(
-    product__producer=producer_profile
-).exclude(
-    order__status='DELIVERED'
-).select_related(
-    'order__customer', 'product'
-).order_by('order__preferred_delivery_date')
+    # GET INCOMING ONE-OFF ORDER ITEMS FOR THIS PRODUCER'S PRODUCTS
+    one_off_order_items = OrderItem.objects.filter(
+        product__producer=producer_profile,
+        order__source_recurring_order__isnull=True,
+    ).exclude(
+        order__status='DELIVERED'
+    ).select_related(
+        'order__customer', 'product'
+    ).order_by('order__preferred_delivery_date')
 
-    # GROUP ORDER ITEMS BY ORDER
-    orders_dict = {}
-    for item in order_items:
+    # GROUP ONE-OFF ORDER ITEMS BY ORDER
+    one_off_orders_dict = {}
+    for item in one_off_order_items:
         order = item.order
-        if order.id not in orders_dict:
-            orders_dict[order.id] = {
+        if order.id not in one_off_orders_dict:
+            one_off_orders_dict[order.id] = {
                 'order': order,
-                'items': []
+                'items': [],
+                'recurring_order': None,
             }
-        orders_dict[order.id]['items'].append(item)
+        one_off_orders_dict[order.id]['items'].append(item)
 
-    orders = list(orders_dict.values())
+    one_off_orders = list(one_off_orders_dict.values())
+
+    # GET ACTIVE RECURRING TEMPLATES THAT INCLUDE THIS PRODUCER'S PRODUCTS
+    recurring_templates = RecurringOrder.objects.filter(
+        status='ACTIVE',
+        items__product__producer=producer_profile,
+    ).select_related('customer').prefetch_related('items__product', 'upcoming_items__product').distinct().order_by('next_order_date')
+
+    recurring_orders = []
+    for recurring_order in recurring_templates:
+        overrides = {
+            upcoming_item.product_id: upcoming_item.quantity
+            for upcoming_item in recurring_order.upcoming_items.filter(
+                scheduled_for=recurring_order.next_order_date
+            )
+        }
+
+        recurring_items = []
+        for template_item in recurring_order.items.select_related('product').all():
+            if template_item.product.producer_id != producer_profile.id:
+                continue
+
+            override_quantity = overrides.get(template_item.product_id)
+            recurring_items.append(
+                {
+                    'product': template_item.product,
+                    'template_quantity': template_item.quantity,
+                    'quantity': override_quantity if override_quantity is not None else template_item.quantity,
+                }
+            )
+
+        if recurring_items:
+            recurring_orders.append(
+                {
+                    'recurring_order': recurring_order,
+                    'items': recurring_items,
+                }
+            )
 
     return render(
         request,
         'marketplace/producer_orders.html',
-        {'orders': orders}
+        {
+            'one_off_orders': one_off_orders,
+            'recurring_orders': recurring_orders,
+        }
     )
 
 
@@ -1318,31 +1360,56 @@ def producer_completed_orders(request):
     if producer_profile is None:
         return redirect('home')
 
-    # GET ALL DELIVERED ORDER ITEMS FOR THIS PRODUCER'S PRODUCTS
-    order_items = OrderItem.objects.filter(
+    # GET DELIVERED ONE-OFF ORDER ITEMS FOR THIS PRODUCER'S PRODUCTS
+    one_off_order_items = OrderItem.objects.filter(
         product__producer=producer_profile,
-        order__status='DELIVERED'
+        order__status='DELIVERED',
+        order__source_recurring_order__isnull=True,
     ).select_related(
         'order__customer', 'product'
     ).order_by('-order__preferred_delivery_date')
 
-    # GROUP ORDER ITEMS BY ORDER
-    orders_dict = {}
-    for item in order_items:
+    one_off_orders_dict = {}
+    for item in one_off_order_items:
         order = item.order
-        if order.id not in orders_dict:
-            orders_dict[order.id] = {
+        if order.id not in one_off_orders_dict:
+            one_off_orders_dict[order.id] = {
                 'order': order,
                 'items': []
             }
-        orders_dict[order.id]['items'].append(item)
+        one_off_orders_dict[order.id]['items'].append(item)
 
-    orders = list(orders_dict.values())
+    one_off_orders = list(one_off_orders_dict.values())
+
+    # GET DELIVERED RECURRING-GENERATED ORDER ITEMS FOR THIS PRODUCER'S PRODUCTS
+    recurring_order_items = OrderItem.objects.filter(
+        product__producer=producer_profile,
+        order__status='DELIVERED',
+        order__source_recurring_order__isnull=False,
+    ).select_related(
+        'order__customer', 'order__source_recurring_order', 'product'
+    ).order_by('-order__preferred_delivery_date')
+
+    recurring_orders_dict = {}
+    for item in recurring_order_items:
+        order = item.order
+        if order.id not in recurring_orders_dict:
+            recurring_orders_dict[order.id] = {
+                'order': order,
+                'items': [],
+                'recurring_order': order.source_recurring_order,
+            }
+        recurring_orders_dict[order.id]['items'].append(item)
+
+    recurring_orders = list(recurring_orders_dict.values())
 
     return render(
         request,
         'marketplace/producer_completed_orders.html',
-        {'orders': orders}
+        {
+            'one_off_orders': one_off_orders,
+            'recurring_orders': recurring_orders,
+        }
     )
 
 
