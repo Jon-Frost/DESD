@@ -54,9 +54,8 @@ docker compose exec web python src/manage.py seed_data
 
 This command recreates the seed users and their linked sample marketplace data (orders, baskets, recurring orders, notifications, reviews).
 
-## API Keys and Tutor Access
+## API Keys
 
-Do **not** put real API keys in README, Word documents, or the repository.
 
 - Cloudinary keys are optional. If blank, the app now uses local media storage and seeded images still work.
 - Stripe keys are optional. If blank, checkout falls back to the local non-Stripe flow.

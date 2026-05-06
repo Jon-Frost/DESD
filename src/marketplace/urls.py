@@ -1,77 +1,19 @@
 from django.urls import path
 from . import views
 from django.contrib.auth import views as auth_views
-from django.contrib.auth.views import PasswordChangeView
-from django.urls import path, reverse_lazy
 from django.conf import settings
-from django.core.cache import cache
-from .views import CustomPasswordChangeView
 
 
-# CUSTOM LOGIN VIEW - HANDLES REMEMBER ME CHECKBOX BY TOGGLING SESSION EXPIRY
 class RememberMeLoginView(auth_views.LoginView):
     template_name = 'marketplace/login.html'
 
-    def _get_client_ip(self):
-        forwarded_for = self.request.META.get('HTTP_X_FORWARDED_FOR')
-        if forwarded_for:
-            return forwarded_for.split(',')[0].strip()
-        return self.request.META.get('REMOTE_ADDR', 'unknown')
-
-    def _get_username(self):
-        return self.request.POST.get('username', '').strip().lower()
-
-    def _get_rate_limit_config(self):
-        max_attempts = getattr(settings, 'LOGIN_RATE_LIMIT_ATTEMPTS', 5)
-        lockout_window_seconds = getattr(settings, 'LOGIN_RATE_LIMIT_WINDOW_SECONDS', 900)
-        return max_attempts, lockout_window_seconds
-
-    def _get_lockout_cache_key(self):
-        return f'login_lockout:{self._get_client_ip()}:{self._get_username()}'
-
-    def _get_attempts_cache_key(self):
-        return f'login_attempts:{self._get_client_ip()}:{self._get_username()}'
-
-    def _is_locked_out(self):
-        return cache.get(self._get_lockout_cache_key()) is True
-
-    def post(self, request, *args, **kwargs):
-        if self._is_locked_out():
-            _max_attempts, lockout_window_seconds = self._get_rate_limit_config()
-            lockout_minutes = max(1, lockout_window_seconds // 60)
-            form = self.get_form()
-            form.add_error(None, f'Account locked, wait {lockout_minutes} minutes')
-            return self.form_invalid(form)
-        return super().post(request, *args, **kwargs)
-
     def form_valid(self, form):
-        cache.delete(self._get_attempts_cache_key())
-        cache.delete(self._get_lockout_cache_key())
-
         remember_me = self.request.POST.get('remember_me')
-        if not remember_me:
-            # NO REMEMBER ME - SESSION EXPIRES WHEN BROWSER CLOSES
+        if remember_me:
+            self.request.session.set_expiry(getattr(settings, 'SESSION_COOKIE_AGE', 1209600))
+        else:
             self.request.session.set_expiry(0)
         return super().form_valid(form)
-
-    def form_invalid(self, form):
-        username = self._get_username()
-        if username:
-            max_attempts, lockout_window_seconds = self._get_rate_limit_config()
-            attempts_key = self._get_attempts_cache_key()
-            lockout_key = self._get_lockout_cache_key()
-
-            attempts = cache.get(attempts_key, 0) + 1
-            cache.set(attempts_key, attempts, timeout=lockout_window_seconds)
-
-            if attempts >= max_attempts:
-                cache.set(lockout_key, True, timeout=lockout_window_seconds)
-                cache.delete(attempts_key)
-                lockout_minutes = max(1, lockout_window_seconds // 60)
-                form.add_error(None, f'Account locked, wait {lockout_minutes} minutes')
-
-        return super().form_invalid(form)
-
 
 urlpatterns = [
     path('', views.home, name='home'),
@@ -86,8 +28,8 @@ urlpatterns = [
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('login/', RememberMeLoginView.as_view(), name='login'),
     path('account/edit/', views.edit_account, name='edit_account'),
+    path('account/password/', views.CustomPasswordChangeView.as_view(), name='change_password'),
     path('products/add/', views.add_product, name='add_product'),
-    path('account/password/',CustomPasswordChangeView.as_view(),name='change_password'),
     path('market/', views.customer_market, name='customer_market'),
     path('producer/bio/', views.producer_bio, name='producer_bio'),
     path('producers/<int:producer_id>/', views.producer_bio_public, name='producer_bio_public'),
