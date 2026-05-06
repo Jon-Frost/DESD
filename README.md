@@ -4,46 +4,63 @@ The repository for collaborating on the DESD module.
 
 ## Session
 
-Reccomended session is friday 1pm-3pm
+Friday 1pm-3pm
 
----
-
-Meetings on monday evenings
+Group G5
 
 ---
 
 Jira task management - [https://desd26.atlassian.net/jira/software/projects/SCRUM/boards/1]()
 
----
+# BRFN
 
-Setup
+The Bristol Regional Food Network (BRFN) is in need of an online marketplace to connect local producers and customers in the Bristol area. This system removes the hastle of individuale sales and provides a comprehensive marketplace service allowing the network to grow and improve efficiency.
 
-# 1. Start the containers and build the environment
+* Producers have the oportunity to list their products in one place for all customer to browse
+* Producers have a detailed interface to list their products including harvest dates and allergen information
+* Customers can conveiniently order from a range of local producers all in one place
+* Orders are handled by the producers, BRFN is not involved in deliveries
+
+# Setup
+
+1. Start the containers and build the environment
+
+Before first run, copy `.env.example` to `.env` and keep Cloudinary/Stripe keys blank for local tutor marking:
+
+Windows (PowerShell):
+
+copy .env.example .env
 
 docker compose up --build
 
-# 2. Sync the database tables
+2. Sync the database tables
 
 docker compose exec web python src/manage.py makemigrations
 docker compose exec web python src/manage.py migrate
 docker compose exec web python src/manage.py seed_data
 
-## Submission / Tutor Setup (Seeded Data)
+## Submission Setup (Seeded Data)
 
-For marking, tutors can load a known dataset with one command after migrations:
+To allow for a complete evaluation of the project, you can load a known dataset with one command after migrations:
 
 docker compose exec web python src/manage.py seed_data
 
-If they want a completely fresh seeded database:
+If you want a completely fresh seeded database:
 
 docker compose down -v
 docker compose up --build -d
 docker compose exec web python src/manage.py migrate
 docker compose exec web python src/manage.py seed_data
 
-The seed command is idempotent for core users/products (safe to run multiple times).
-
 This command recreates the seed users and their linked sample marketplace data (orders, baskets, recurring orders, notifications, reviews).
+
+## API Keys and Tutor Access
+
+Do **not** put real API keys in README, Word documents, or the repository.
+
+- Cloudinary keys are optional. If blank, the app now uses local media storage and seeded images still work.
+- Stripe keys are optional. If blank, checkout falls back to the local non-Stripe flow.
+- For marking, tutors only need `.env` from `.env.example` and the standard seed commands.
 
 Demo accounts created by seed command:
 
@@ -55,41 +72,4 @@ Demo accounts created by seed command:
 - Customer: aisha.khan / Basket#2026
 - Customer: tom.watkins / FreshFood2026!
 
-# BRFN
-
-The Bristol Regional Food Network (BRFN) is in need of an online marketplace to connect local producers and customers in the Bristol area. This system removes the hastle of individuale sales and provides a comprehensive marketplace service allowing the network to grow and improve efficiency.
-
-* Producers have the oportunity to list their products in one place for all customer to browse
-* Producers have a detailed interface to list their products including harvest dates and allergen information
-* Customers can conveiniently order from a range of local producers all in one place
-* Orders are handled by the producers, BRFN is not involved in deliveries
-
 ---
-
-# Test Cases:
-
-1. TC-001 -
-2. TC-002 - Passed
-3. TC-003 - Passed
-4. TC-004 - Passed
-5. TC-005 - Passed
-6. TC-006 - Passed
-7. TC-007 - Passed
-8. TC-008 - Passed
-9. TC-009 - Passed
-10. TC-010 - Passed
-11. TC-011 - Passed
-12. TC-012 -
-13. TC-013 -
-14. TC-014 - Passed
-15. TC-015 - Passed
-16. TC-016 - Passed
-17. TC-017 - Passed
-18. TC-018 - Passed
-19. TC-019 - Passed
-20. TC-020 -
-21. TC-021 - Passed
-22. TC-022 - Passed
-23. TC-023 - Passed
-24. TC-024 - Passed
-25. TC-025 - Passed

@@ -1,5 +1,5 @@
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from datetime import date, timedelta
@@ -355,6 +355,66 @@ class ProducerIncomingOrdersTests(TestCase):
         self.assertContains(response, 'Incoming Apples')
         self.assertContains(response, '<td>2</td>', html=True)
         self.assertContains(response, '<td>4</td>', html=True)
+
+
+class CheckoutFallbackTests(TestCase):
+    def setUp(self):
+        self.customer_user = User.objects.create_user(username='fallback_customer', password='testpass123')
+        self.customer = Customer.objects.create(
+            user=self.customer_user,
+            name='Fallback Customer',
+            email='fallback.customer@example.com',
+            address='23 Checkout Lane, Bristol',
+            postcode='BS15AA',
+        )
+
+        self.producer_user = User.objects.create_user(username='fallback_producer', password='testpass123')
+        self.producer = Producer.objects.create(
+            user=self.producer_user,
+            business_name='Fallback Farm',
+            contact_name='Frank Farmer',
+            email='fallback.producer@example.com',
+            business_address='9 Producer Street, Bristol',
+            postcode='BS16BB',
+        )
+
+        self.product = Product.objects.create(
+            producer=self.producer,
+            name='Fallback Potatoes',
+            category='VEG',
+            description='Fresh potatoes for fallback checkout test',
+            price='2.00',
+            unit='per kg',
+            stock_quantity=30,
+            is_organic=True,
+        )
+
+        BasketItem.objects.create(
+            customer=self.customer,
+            product=self.product,
+            quantity=2,
+        )
+
+    @override_settings(STRIPE_SECRET_KEY='', STRIPE_PUBLISHABLE_KEY='')
+    def test_checkout_uses_non_stripe_fallback_when_keys_missing(self):
+        self.client.login(username='fallback_customer', password='testpass123')
+
+        response = self.client.post(
+            reverse('checkout'),
+            {
+                'preferred_delivery_date': (date.today() + timedelta(days=3)).isoformat(),
+                'card_holder_name': 'Fallback Customer',
+                'card_number': '4242424242424242',
+                'card_expiry': '12/30',
+                'card_cvv': '123',
+            },
+        )
+
+        order = CustomerOrder.objects.get(customer=self.customer)
+        self.assertRedirects(response, reverse('order_confirmation', args=[order.id]))
+        self.assertEqual(order.status, 'PENDING')
+        self.assertEqual(order.items.count(), 1)
+        self.assertFalse(BasketItem.objects.filter(customer=self.customer).exists())
 
 
 class ProducerBioViewTests(TestCase):
