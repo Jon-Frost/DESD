@@ -26,6 +26,34 @@ docker compose up --build
 
 docker compose exec web python src/manage.py makemigrations
 docker compose exec web python src/manage.py migrate
+docker compose exec web python src/manage.py seed_data
+
+## Submission / Tutor Setup (Seeded Data)
+
+For marking, tutors can load a known dataset with one command after migrations:
+
+docker compose exec web python src/manage.py seed_data
+
+If they want a completely fresh seeded database:
+
+docker compose down -v
+docker compose up --build -d
+docker compose exec web python src/manage.py migrate
+docker compose exec web python src/manage.py seed_data
+
+The seed command is idempotent for core users/products (safe to run multiple times).
+
+This command recreates the seed users and their linked sample marketplace data (orders, baskets, recurring orders, notifications, reviews).
+
+Demo accounts created by seed command:
+
+- Admin: brfn_admin / Admin@BRFN2026
+- Producer: olivia.barnes / Harvest!2026
+- Producer: marcus.reed / Cotswold#2026
+- Producer: hannah.clarke / Dairy&Grain2026
+- Customer: daniel.price / Shopper!2026
+- Customer: aisha.khan / Basket#2026
+- Customer: tom.watkins / FreshFood2026!
 
 # BRFN
 
