@@ -167,6 +167,9 @@ def _create_recurring_order_if_requested(request, customer_profile, order):
         frequency=recurring_data['frequency'],
         delivery_address=recurring_data['delivery_address'],
         next_order_date=date.fromisoformat(recurring_data['next_order_date']),
+        recurrence_day=recurring_data.get('recurrence_day', 0),
+        delivery_week_offset=recurring_data.get('delivery_week_offset', 0),
+        delivery_day=recurring_data.get('delivery_day', 2),
     )
 
     for order_item in order.items.all():
@@ -861,9 +864,30 @@ def checkout(request):
     if request.method == 'POST':
         form = CheckoutForm(request.POST)
         if form.is_valid():
-            # IF A RECURRING ORDER IS PENDING AND THE DELIVERY DATE HAS BEEN CHANGED, CANCEL IT
+            # IF THE INLINE RECURRING FORM IS FILLED IN, BUILD THE SESSION DATA FROM IT
+            if form.cleaned_data.get('make_recurring') and 'recurring_order_data' not in request.session:
+                recurrence_day = int(form.cleaned_data['recurrence_day'])
+                delivery_slot = form.cleaned_data['recurring_delivery_day']  # e.g. '0:2'
+                week_offset, delivery_day_val = map(int, delivery_slot.split(':'))
+                # FIND THE NEXT OCCURRENCE OF recurrence_day THAT IS AT LEAST 2 DAYS FROM NOW
+                min_recurrence = date.today() + timedelta(days=2)
+                days_ahead = (recurrence_day - min_recurrence.weekday()) % 7
+                first_recurrence_date = min_recurrence + timedelta(days=days_ahead)
+                request.session['recurring_order_data'] = {
+                    'frequency': form.cleaned_data['recurrence_frequency'],
+                    'delivery_address': customer_profile.address,
+                    'next_order_date': first_recurrence_date.isoformat(),
+                    'recurrence_day': recurrence_day,
+                    'delivery_week_offset': week_offset,
+                    'delivery_day': delivery_day_val,
+                    'from_inline': True,
+                }
+
+            # IF A RECURRING ORDER WAS SET UP VIA THE SEPARATE PAGE AND THE DELIVERY DATE
+            # HAS SINCE BEEN CHANGED, CANCEL IT. INLINE-BUILT RECURRING DATA IS EXEMPT
+            # BECAUSE ITS next_order_date IS THE RECURRENCE DAY, NOT THE DELIVERY DATE.
             recurring_order_data = request.session.get('recurring_order_data')
-            if recurring_order_data:
+            if recurring_order_data and not recurring_order_data.get('from_inline'):
                 submitted_date = form.cleaned_data['preferred_delivery_date'].isoformat()
                 if submitted_date != recurring_order_data.get('next_order_date'):
                     del request.session['recurring_order_data']
@@ -1652,11 +1676,25 @@ def setup_recurring_order(request):
             )
             return redirect('view_basket')
 
+        try:
+            recurrence_day = int(request.POST.get('recurrence_day', 0))
+        except (TypeError, ValueError):
+            recurrence_day = 0
+
+        delivery_slot = request.POST.get('delivery_slot', '0:2')
+        try:
+            week_offset, delivery_day_val = map(int, delivery_slot.split(':'))
+        except (ValueError, AttributeError):
+            week_offset, delivery_day_val = 0, 2
+
         # STORE THE RECURRING ORDER DETAILS IN THE SESSION
         request.session['recurring_order_data'] = {
             'frequency': frequency,
             'delivery_address': delivery_address,
             'next_order_date': next_order_date.isoformat(),
+            'recurrence_day': recurrence_day,
+            'delivery_week_offset': week_offset,
+            'delivery_day': delivery_day_val,
         }
         
         messages.success(
@@ -1678,12 +1716,16 @@ def setup_recurring_order(request):
         )
         return redirect('view_basket')
 
+    from .forms import build_delivery_day_choices
+    default_recurrence_day = 0
     return render(
         request,
         'marketplace/setup_recurring_order.html',
         {
             'basket_items': basket_items,
             'frequency_choices': RecurringOrder.FREQUENCY_CHOICES,
+            'weekday_choices': RecurringOrder.WEEKDAY_CHOICES,
+            'delivery_slot_choices': build_delivery_day_choices(default_recurrence_day),
             'delivery_address': customer_profile.address,
             'min_date': (date.today() + timedelta(days=2)).isoformat(),
             'prefilled_first_delivery_date': prefilled_first_delivery_date,

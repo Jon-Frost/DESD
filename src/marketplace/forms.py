@@ -282,10 +282,10 @@ class CheckoutForm(forms.Form):
         return number
 
     def clean_preferred_delivery_date(self):
-        # ENSURE THE PREFERRED DELIVERY DATE IS NOT IN THE PAST
+        # ENSURE THE PREFERRED DELIVERY DATE IS AT LEAST 48 HOURS FROM NOW
         date = self.cleaned_data['preferred_delivery_date']
-        if date < datetime.date.today():
-            raise forms.ValidationError('Preferred delivery date cannot be in the past.')
+        if date < datetime.date.today() + datetime.timedelta(days=2):
+            raise forms.ValidationError('Preferred delivery date must be at least 48 hours from today.')
         return date
 
     def clean_card_expiry(self):
@@ -301,15 +301,6 @@ class CheckoutForm(forms.Form):
         cleaned_data = super().clean()
         if not cleaned_data.get('make_recurring'):
             return cleaned_data
-
-        preferred_delivery_date = cleaned_data.get('preferred_delivery_date')
-        minimum_date = datetime.date.today() + datetime.timedelta(days=2)
-
-        if preferred_delivery_date and preferred_delivery_date < minimum_date:
-            self.add_error(
-                'preferred_delivery_date',
-                'Recurring orders require the first delivery date to be at least 48 hours from today.'
-            )
 
         if not cleaned_data.get('recurrence_frequency'):
             self.add_error('recurrence_frequency', 'Please choose how often this order should repeat.')
